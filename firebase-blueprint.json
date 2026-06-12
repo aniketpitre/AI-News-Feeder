@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "Feed": {
+      "title": "Feed",
+      "description": "An RSS Feed source",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "topic": { "type": "string" },
+        "autoPublish": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["name", "url", "isActive", "createdAt", "updatedAt"]
+    },
+    "Article": {
+      "title": "Article",
+      "description": "An aggregated news article",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "summary": { "type": "string" },
+        "content": { "type": "string" },
+        "topics": { "type": "array", "items": { "type": "string" } },
+        "sourceId": { "type": "string" },
+        "sourceName": { "type": "string" },
+        "status": { "type": "string", "enum": ["published", "draft", "rejected"] },
+        "publishedAt": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["title", "url", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/feeds/{feedId}": {
+      "schema": { "$ref": "#/entities/Feed" },
+      "description": "RSS Feed Sources"
+    },
+    "/articles/{articleId}": {
+      "schema": { "$ref": "#/entities/Article" },
+      "description": "Aggregated Articles"
+    }
+  }
+}
