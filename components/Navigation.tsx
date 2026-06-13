@@ -13,6 +13,7 @@ export function Navigation() {
           <Link href="#" className="hover:text-white transition-colors">K8s</Link>
           <Link href="#" className="hover:text-white transition-colors">AI/ML</Link>
           <Link href="#" className="hover:text-white transition-colors">Cyber SOC</Link>
+        <Link href="/articles" className="hover:text-white transition-colors ml-4">Articles</Link>
         </div>
       </div>
       <div className="flex items-center gap-4">
