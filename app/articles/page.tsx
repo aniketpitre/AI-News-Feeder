@@ -118,23 +118,24 @@ function ArticleNode({
           />
         </mesh>
 
-        {/* CSS transform projection tag */}
+        {/* CSS transform projection tag - Rendered 4x larger and scaled back to 0.25 to prevent blurriness */}
         <Html
           position={[0, 0, 0.16]}
           transform
           occlude
           pointerEvents="none"
-          className="w-[230px] h-[140px] select-none p-4 flex flex-col justify-between bg-[#080808]/90 border border-white/10 rounded-xl backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.8)]"
+          scale={0.25}
+          className="w-[920px] h-[560px] select-none p-16 flex flex-col justify-between bg-[#080808]/92 border-[4px] border-white/10 rounded-3xl backdrop-blur-md shadow-[0_16px_96px_rgba(0,0,0,0.9)]"
         >
           <div className="flex flex-col h-full justify-between select-none">
             <div>
-              <span className="text-[7.5px] font-black uppercase tracking-widest text-[#00FFC2]">{article.category}</span>
-              <h3 className="text-[10px] font-extrabold text-white mt-1 leading-snug line-clamp-3 select-none">{article.title}</h3>
+              <span className="text-[30px] font-black uppercase tracking-widest text-[#00FFC2]">{article.category}</span>
+              <h3 className="text-[40px] font-extrabold text-white mt-4 leading-snug line-clamp-3 select-none">{article.title}</h3>
             </div>
-            <div className="flex items-center justify-between text-[7.5px] font-bold text-white/40 uppercase tracking-wider select-none">
+            <div className="flex items-center justify-between text-[30px] font-bold text-white/40 uppercase tracking-wider select-none">
               <span>{article.date}</span>
-              <span className="text-[#00FFC2] flex items-center gap-0.5 animate-pulse">
-                Details <ArrowRight className="w-1.5 h-1.5" />
+              <span className="text-[#00FFC2] flex items-center gap-2 animate-pulse">
+                Details <ArrowRight className="w-6 h-6" />
               </span>
             </div>
           </div>
