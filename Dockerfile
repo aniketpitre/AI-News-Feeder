@@ -16,6 +16,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 RUN npm run build
+RUN npx tsc scripts/sync-feeds.ts --target es2022 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck --outDir dist
 
 # ---- runner ----
 FROM node:20-alpine AS runner
@@ -30,6 +31,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 # Next.js standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/dist/sync-feeds.js ./scripts/sync-feeds.js
 
 USER nextjs
 

@@ -17,9 +17,8 @@ spec:
             image: 410386583102.dkr.ecr.ap-south-1.amazonaws.com/ai-news-feeder:latest
             imagePullPolicy: Always
             command:
-            - npx
-            - tsx
-            - scripts/sync-feeds.ts
+            - node
+            - scripts/sync-feeds.js
             env:
             - name: GEMINI_API_KEY
               valueFrom:
