@@ -3,6 +3,8 @@
 import { useRef } from 'react';
 import HeroCanvas from '@/components/HeroCanvas';
 import { ArrowRight, Cpu, Shield, Container, Brain } from 'lucide-react';
+import { TextScramble } from '@/components/ui/TextScramble';
+import { InteractiveCard } from '@/components/ui/InteractiveCard';
 
 const categories = [
   { name: 'DevOps', icon: Container },
@@ -34,7 +36,7 @@ export default function Home() {
   };
 
   return (
-    <div className="w-full h-full overflow-y-auto">
+    <div className="w-full">
       {/* HERO SECTION */}
       <section
         ref={heroRef}
@@ -62,7 +64,7 @@ export default function Home() {
           </span>
 
           <h1
-            className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter leading-[0.95] select-none transition-all duration-300"
+            className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter leading-[0.95] select-none transition-all duration-300 pointer-events-auto cursor-default"
             style={{
               backgroundImage:
                 'radial-gradient(550px circle at var(--mx) var(--my), #00FFC2 0%, #ffffff 45%, #ffffff 100%)',
@@ -71,7 +73,8 @@ export default function Home() {
               color: 'transparent',
             }}
           >
-            TECH_SYNC<span className="text-[#00FFC2]">.</span>
+            <TextScramble text="TECH_SYNC" trigger="both" />
+            <span className="text-[#00FFC2]">.</span>
           </h1>
 
           <p className="mt-6 max-w-xl text-sm sm:text-base text-white/50 uppercase tracking-widest font-medium">
@@ -86,7 +89,7 @@ export default function Home() {
       </section>
 
       {/* CATEGORY STRIP */}
-      <section className="border-y border-white/10 bg-[#080808] sticky top-[65px] z-30 backdrop-blur-md bg-[#080808]/80">
+      <section className="border-y border-white/10 bg-[#080808]/80 sticky top-[65px] z-30 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
           {categories.map(({ name, icon: Icon }) => (
             <button
@@ -94,7 +97,9 @@ export default function Home() {
               className="flex items-center gap-2 text-white/50 hover:text-[#00FFC2] hover:scale-105 transition-all duration-200 cursor-pointer"
             >
               <Icon className="w-4 h-4" />
-              <span className="text-xs font-bold uppercase tracking-widest">{name}</span>
+              <span className="text-xs font-bold uppercase tracking-widest">
+                <TextScramble text={name} trigger="hover" />
+              </span>
             </button>
           ))}
         </div>
@@ -104,7 +109,7 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-6 py-20">
         <div className="flex items-end justify-between mb-10 flex-wrap gap-4">
           <h2 className="text-3xl sm:text-4xl font-black tracking-tighter">
-            Latest <span className="text-[#00FFC2]">Transmissions</span>
+            Latest <TextScramble text="Transmissions" trigger="hover" />
           </h2>
           <span className="text-xs font-bold uppercase tracking-widest text-white/30">
             Articles added manually
@@ -113,35 +118,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {placeholderArticles.map((article, i) => (
-            <article
-              key={i}
-              className="group relative border border-white/10 bg-[#080808] rounded-2xl overflow-hidden hover:border-[#00FFC2]/40 hover:-translate-y-1 hover:shadow-[0_0_30px_-10px_#00FFC2] transition-all duration-300 cursor-pointer"
-            >
-              <div className="h-44 w-full bg-gradient-to-br from-[#101010] to-[#1a1a1a] flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_30%_30%,#00FFC2,transparent_60%)] group-hover:opacity-40 transition-opacity duration-300" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">Image / Media</span>
-              </div>
-
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#00FFC2]">
-                    {article.category}
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">
-                    {article.date}
-                  </span>
-                </div>
-                <h3 className="text-lg font-bold leading-snug mb-2 group-hover:text-[#00FFC2] transition-colors">
-                  {article.title}
-                </h3>
-                <p className="text-sm text-white/40 leading-relaxed">
-                  {article.excerpt}
-                </p>
-                <div className="mt-4 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-white/30 group-hover:text-[#00FFC2] group-hover:gap-2 transition-all">
-                  Read More <ArrowRight className="w-3 h-3" />
-                </div>
-              </div>
-            </article>
+            <InteractiveCard key={i} {...article} />
           ))}
         </div>
       </section>
