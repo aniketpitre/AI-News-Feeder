@@ -6,7 +6,7 @@ import { useRef } from 'react';
 import * as THREE from 'three';
 
 function RotatingThing() {
-  const mesh = useRef<any>();
+  const mesh = useRef<any>(null);
   useFrame((state, delta) => {
     if (mesh.current) {
       mesh.current.rotation.x += delta * 0.2;

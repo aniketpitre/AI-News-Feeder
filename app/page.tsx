@@ -1,8 +1,10 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArticleCard } from '@/components/ArticleCard';
+import Hero3D from '@/components/Hero3D';
+import ArticleModal from '@/components/ArticleModal';
 import { Sparkles, Zap, TrendingUp, Search } from 'lucide-react';
 
 interface Article {
@@ -31,6 +33,7 @@ const CATEGORIES = [
 
 export default function Home() {
   const [articles, setArticles] = useState<Article[]>([]);
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [filteredArticles, setFilteredArticles] = useState<Article[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,19 +88,7 @@ export default function Home() {
     <div className="min-h-screen bg-[#050505] pt-24 pb-20 overflow-x-hidden">
       {/* Hero Section with 3D Background */}
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden px-4 md:px-8">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          {/* Large background gradient orbs */}
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#00FFC2]/20 rounded-full blur-3xl animate-blob" />
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#00D9FF]/20 rounded-full blur-3xl animate-blob animation-delay-2000" />
-          <div className="absolute top-1/2 right-0 w-96 h-96 bg-[#0080FF]/10 rounded-full blur-3xl animate-blob animation-delay-4000" />
-
-          {/* Grid pattern */}
-          <div className="absolute inset-0 opacity-10" style={{
-            backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(0, 255, 194, .1) 25%, rgba(0, 255, 194, .1) 26%, transparent 27%, transparent 74%, rgba(0, 255, 194, .1) 75%, rgba(0, 255, 194, .1) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(0, 255, 194, .1) 25%, rgba(0, 255, 194, .1) 26%, transparent 27%, transparent 74%, rgba(0, 255, 194, .1) 75%, rgba(0, 255, 194, .1) 76%, transparent 77%, transparent)',
-            backgroundSize: '50px 50px',
-          }} />
-        </div>
+        <Hero3D />
 
         <div className="relative z-10 max-w-6xl w-full">
           <motion.div
@@ -169,7 +160,7 @@ export default function Home() {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <ArticleCard article={featuredArticle} variant="featured" />
+            <ArticleCard article={featuredArticle} variant="featured" onOpen={(a) => setSelectedArticle(a)} />
           </motion.div>
         </section>
       )}
@@ -259,12 +250,16 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredArticles.map((article, index) => (
-                <ArticleCard key={article.id} article={article} variant="grid" index={index} />
+                <ArticleCard key={article.id} article={article} variant="grid" index={index} onOpen={(a) => setSelectedArticle(a)} />
               ))}
             </div>
           )}
         </motion.div>
       </section>
+
+      {selectedArticle && (
+        <ArticleModal article={selectedArticle} onClose={() => setSelectedArticle(null)} />
+      )}
 
       {/* Trending Topics */}
       {trendingTopics.length > 0 && (

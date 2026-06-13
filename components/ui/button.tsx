@@ -55,4 +55,17 @@ function Button({
   )
 }
 
-export { Button, buttonVariants }
+'use client'
+
+import React from 'react'
+
+export function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const { children, ...rest } = props
+  return (
+    <button {...rest} className={rest.className ?? 'px-3 py-1 rounded bg-black text-white'}>
+      {children}
+    </button>
+  )
+}
+
+export default Button

@@ -230,6 +230,6 @@ export function ArticleCard({ article, variant = 'grid', index = 0, onOpen }: Ar
         </div>
         <Zap className="w-4 h-4 text-[#00FFC2]/50 group-hover:text-[#00FFC2] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
       </div>
-    </motion.a>
+    </Comp>
   );
 }
