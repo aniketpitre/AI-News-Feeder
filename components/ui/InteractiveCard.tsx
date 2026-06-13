@@ -16,6 +16,11 @@ export function InteractiveCard({ category, title, excerpt, date }: InteractiveC
   const [isHovered, setIsHovered] = useState(false);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Skip tilt calculations on touch-only devices to avoid scroll interference
+    if (typeof window !== 'undefined' && !window.matchMedia('(hover: hover)').matches) {
+      return;
+    }
+
     const card = cardRef.current;
     if (!card) return;
 
@@ -29,7 +34,6 @@ export function InteractiveCard({ category, title, excerpt, date }: InteractiveC
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
 
-    // Subtle 6 degree rotation bounds
     const rotateX = -((y - centerY) / centerY) * 6;
     const rotateY = ((x - centerX) / centerX) * 6;
 
@@ -58,7 +62,7 @@ export function InteractiveCard({ category, title, excerpt, date }: InteractiveC
         transition: isHovered ? 'none' : 'all 0.5s ease',
       }}
     >
-      {/* Dynamic Cursor Spotlight Glow */}
+      {/* Dynamic Cursor Spotlight Glow (only visible when hovered) */}
       <div
         className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10"
         style={{

@@ -64,7 +64,7 @@ export default function Home() {
           </span>
 
           <h1
-            className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter leading-[0.95] select-none transition-all duration-300 pointer-events-auto cursor-default"
+            className="text-4xl sm:text-7xl md:text-8xl font-black tracking-tighter leading-[0.95] select-none transition-all duration-300 pointer-events-auto cursor-default"
             style={{
               backgroundImage:
                 'radial-gradient(550px circle at var(--mx) var(--my), #00FFC2 0%, #ffffff 45%, #ffffff 100%)',
@@ -77,7 +77,7 @@ export default function Home() {
             <span className="text-[#00FFC2]">.</span>
           </h1>
 
-          <p className="mt-6 max-w-xl text-sm sm:text-base text-white/50 uppercase tracking-widest font-medium">
+          <p className="mt-6 max-w-xl text-xs sm:text-sm md:text-base text-white/50 uppercase tracking-widest font-medium">
             Signal from the edge — DevOps, Kubernetes, AI/ML &amp; Cyber Security, curated in real time.
           </p>
 
@@ -90,13 +90,13 @@ export default function Home() {
 
       {/* CATEGORY STRIP */}
       <section className="border-y border-white/10 bg-[#080808]/80 sticky top-[65px] z-30 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-start md:justify-center gap-x-8 overflow-x-auto no-scrollbar scroll-smooth whitespace-nowrap">
           {categories.map(({ name, icon: Icon }) => (
             <button
               key={name}
-              className="flex items-center gap-2 text-white/50 hover:text-[#00FFC2] hover:scale-105 transition-all duration-200 cursor-pointer"
+              className="flex items-center gap-2 text-white/50 hover:text-[#00FFC2] hover:scale-105 transition-all duration-200 cursor-pointer shrink-0"
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-4.5 h-4.5" />
               <span className="text-xs font-bold uppercase tracking-widest">
                 <TextScramble text={name} trigger="hover" />
               </span>

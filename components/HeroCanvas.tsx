@@ -36,12 +36,18 @@ function SceneContents() {
     const height = typeof window !== 'undefined' ? window.innerHeight : 800;
     const scrollProgress = Math.min(scrollY / (height || 800), 1);
 
+    const { width: vpWidth, height: vpHeight } = state.viewport;
+    const isMobile = vpWidth < 7;
+
     // 1. Scroll-driven parent group positioning and scaling
     if (mainGroup.current) {
-      const targetX = scrollProgress * 3.2; // Shift right
-      const targetY = scrollProgress * 1.5; // Shift up
-      const targetZ = scrollProgress * -2.5; // Push back
-      const targetScale = 1 - scrollProgress * 0.55; // Scale down to 45%
+      // Dynamic shift based on screen size (shift less on small screens)
+      const targetX = scrollProgress * (isMobile ? vpWidth * 0.15 : vpWidth * 0.22);
+      const targetY = scrollProgress * (isMobile ? vpHeight * 0.20 : vpHeight * 0.22);
+      const targetZ = scrollProgress * (isMobile ? -1.5 : -2.5);
+      
+      const baseScale = isMobile ? 0.65 : 1.0;
+      const targetScale = baseScale * (1 - scrollProgress * 0.50);
 
       mainGroup.current.position.x += (targetX - mainGroup.current.position.x) * 0.08;
       mainGroup.current.position.y += (targetY - mainGroup.current.position.y) * 0.08;
@@ -57,8 +63,9 @@ function SceneContents() {
       coreRef.current.rotation.y += delta * 0.12;
       coreRef.current.rotation.x += delta * 0.04;
 
-      const mouseXOffset = state.pointer.x * 1.0 * (1 - scrollProgress);
-      const mouseYOffset = state.pointer.y * 0.6 * (1 - scrollProgress);
+      // Disable mouse offset drift on touch screens to prevent jumpy touch frames
+      const mouseXOffset = isMobile ? 0 : state.pointer.x * 1.0 * (1 - scrollProgress);
+      const mouseYOffset = isMobile ? 0 : state.pointer.y * 0.6 * (1 - scrollProgress);
       
       coreRef.current.position.x += (mouseXOffset - coreRef.current.position.x) * 0.05;
       coreRef.current.position.y += (mouseYOffset - coreRef.current.position.y) * 0.05;
@@ -66,7 +73,7 @@ function SceneContents() {
 
     if (materialRef.current) {
       const mouseSpeed = Math.abs(state.pointer.x) + Math.abs(state.pointer.y);
-      materialRef.current.distort = 0.35 + mouseSpeed * 0.25 + scrollProgress * 0.3;
+      materialRef.current.distort = 0.35 + (isMobile ? 0 : mouseSpeed * 0.25) + scrollProgress * 0.3;
     }
 
     // 3. Satellite orbiting
@@ -75,11 +82,11 @@ function SceneContents() {
       if (sat) {
         const time = state.clock.getElapsedTime();
         const angle = (i / 5) * Math.PI * 2 + time * 0.12;
-        const radius = 3.6;
+        const radius = isMobile ? 2.0 : 3.6; // Smaller radius on mobile viewport
         
         sat.position.x = Math.cos(angle) * radius;
         sat.position.z = Math.sin(angle) * radius;
-        sat.position.y = Math.sin(time * 0.4 + i) * 0.4;
+        sat.position.y = Math.sin(time * 0.4 + i) * (isMobile ? 0.2 : 0.4);
         
         sat.rotation.x += delta * 0.4;
         sat.rotation.y += delta * 0.2;
