@@ -4,11 +4,31 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { TextScramble } from './ui/TextScramble';
 import { Menu, X } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const activeCategory = searchParams.get('category') || 'all';
+  const isArticlesPage = pathname.startsWith('/articles');
+  const basePath = isArticlesPage ? '/articles' : '/';
 
   const toggleMenu = () => setIsOpen(!isOpen);
+
+  const getLinkClass = (category: string) => {
+    const isActive = activeCategory.toLowerCase() === category.toLowerCase();
+    // Special condition: if the user highlights Articles itself, highlight it
+    if (category === 'articles') {
+      return isArticlesPage 
+        ? "text-[#00FFC2] font-black tracking-widest pb-1 border-b-2 border-[#00FFC2]" 
+        : "hover:text-white transition-colors pb-1";
+    }
+    return isActive
+      ? "text-[#00FFC2] font-black tracking-widest pb-1 border-b-2 border-[#00FFC2]"
+      : "hover:text-white transition-colors pb-1";
+  };
 
   return (
     <>
@@ -25,22 +45,22 @@ export function Navigation() {
           
           {/* Desktop Links */}
           <div className="hidden md:flex gap-6 text-sm font-medium text-white/60 uppercase tracking-widest">
-            <Link href="/" className="text-white border-b-2 border-[#00FFC2] pb-1">
+            <Link href={`${basePath}?category=all`} className={getLinkClass('all')}>
               <TextScramble text="Network" trigger="hover" />
             </Link>
-            <Link href="#" className="hover:text-white transition-colors">
+            <Link href={`${basePath}?category=DevOps`} className={getLinkClass('DevOps')}>
               <TextScramble text="DevOps" trigger="hover" />
             </Link>
-            <Link href="#" className="hover:text-white transition-colors">
+            <Link href={`${basePath}?category=K8s`} className={getLinkClass('K8s')}>
               <TextScramble text="K8s" trigger="hover" />
             </Link>
-            <Link href="#" className="hover:text-white transition-colors">
+            <Link href={`${basePath}?category=AI/ML`} className={getLinkClass('AI/ML')}>
               <TextScramble text="AI/ML" trigger="hover" />
             </Link>
-            <Link href="#" className="hover:text-white transition-colors">
+            <Link href={`${basePath}?category=Cyber SOC`} className={getLinkClass('Cyber SOC')}>
               <TextScramble text="Cyber SOC" trigger="hover" />
             </Link>
-            <Link href="/articles" className="hover:text-white transition-colors ml-4">
+            <Link href="/articles" className={getLinkClass('articles') + " ml-4"}>
               <TextScramble text="Articles" trigger="hover" />
             </Link>
           </div>
@@ -71,44 +91,44 @@ export function Navigation() {
         <div className="fixed inset-0 top-[61px] z-40 bg-[#050505]/95 backdrop-blur-lg flex flex-col p-8 md:hidden border-b border-white/10 animate-mobile-menu">
           <div className="flex flex-col gap-6 text-lg font-bold uppercase tracking-widest mt-4">
             <Link
-              href="/"
+              href={`${basePath}?category=all`}
               onClick={() => setIsOpen(false)}
-              className="text-white hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors"
+              className={activeCategory === 'all' ? 'text-[#00FFC2] border-b border-white/5 pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors'}
             >
               <TextScramble text="Network" trigger="both" />
             </Link>
             <Link
-              href="#"
+              href={`${basePath}?category=DevOps`}
               onClick={() => setIsOpen(false)}
-              className="text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors"
+              className={activeCategory.toLowerCase() === 'devops' ? 'text-[#00FFC2] border-b border-white/5 pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors'}
             >
               <TextScramble text="DevOps" trigger="both" />
             </Link>
             <Link
-              href="#"
+              href={`${basePath}?category=K8s`}
               onClick={() => setIsOpen(false)}
-              className="text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors"
+              className={activeCategory.toLowerCase() === 'k8s' ? 'text-[#00FFC2] border-b border-white/5 pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors'}
             >
               <TextScramble text="K8s" trigger="both" />
             </Link>
             <Link
-              href="#"
+              href={`${basePath}?category=AI/ML`}
               onClick={() => setIsOpen(false)}
-              className="text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors"
+              className={activeCategory.toLowerCase() === 'ai/ml' ? 'text-[#00FFC2] border-b border-white/5 pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors'}
             >
               <TextScramble text="AI/ML" trigger="both" />
             </Link>
             <Link
-              href="#"
+              href={`${basePath}?category=Cyber SOC`}
               onClick={() => setIsOpen(false)}
-              className="text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors"
+              className={activeCategory.toLowerCase() === 'cyber soc' ? 'text-[#00FFC2] border-b border-white/5 pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors'}
             >
               <TextScramble text="Cyber SOC" trigger="both" />
             </Link>
             <Link
               href="/articles"
               onClick={() => setIsOpen(false)}
-              className="text-white/60 hover:text-[#00FFC2] pb-2 transition-colors"
+              className={isArticlesPage ? 'text-[#00FFC2] pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] pb-2 transition-colors'}
             >
               <TextScramble text="Articles" trigger="both" />
             </Link>

@@ -8,6 +8,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { mockArticles, MockArticle } from '@/lib/mock-articles';
 import { TextScramble } from '@/components/ui/TextScramble';
+import { useSearchParams } from 'next/navigation';
 
 const getPosition = (index: number, isMobile: boolean) => {
   // Stagger nodes in a zig-zag depth pattern
@@ -17,7 +18,7 @@ const getPosition = (index: number, isMobile: boolean) => {
   return [x, y, z] as [number, number, number];
 };
 
-function TimelineCamera() {
+function TimelineCamera({ activeCount }: { activeCount: number }) {
   const { camera, viewport } = useThree();
   const isMobile = viewport.width < 7;
 
@@ -28,8 +29,9 @@ function TimelineCamera() {
       : 1000;
     const ratio = maxScroll > 0 ? scrollY / maxScroll : 0;
 
-    // Camera flies down the Z axis from +4 down to -50 based on scroll ratio
-    const targetZ = 4 - ratio * 54;
+    // Adjust camera path length depending on number of nodes (default to 6 nodes path = 54 units)
+    const flightLength = Math.max((activeCount - 1) * 9 + 4, 12);
+    const targetZ = 4 - ratio * (flightLength + 2);
     camera.position.z += (targetZ - camera.position.z) * 0.08;
 
     // Mouse-movement reactive sway on X/Y (disabled on mobile)
@@ -153,9 +155,12 @@ function ArticleNode({
   );
 }
 
-export default function Articles() {
+function ArticlesContent() {
   const [articles, setArticles] = useState<MockArticle[]>(mockArticles);
   const [selectedArticle, setSelectedArticle] = useState<MockArticle | null>(null);
+  const searchParams = useSearchParams();
+
+  const activeCategory = searchParams.get('category') || 'all';
 
   useEffect(() => {
     async function fetchArticles() {
@@ -177,6 +182,11 @@ export default function Articles() {
     fetchArticles();
   }, []);
 
+  // Filter articles dynamically based on url category parameters
+  const filteredArticles = activeCategory.toLowerCase() === 'all' || activeCategory.toLowerCase() === 'network'
+    ? articles
+    : articles.filter(a => a.category.toLowerCase() === activeCategory.toLowerCase());
+
   return (
     <div className="relative w-full min-h-[350vh] bg-[#050505] text-white">
       {/* Flight Canvas Overlay */}
@@ -188,7 +198,7 @@ export default function Articles() {
             <ambientLight intensity={0.5} />
             <directionalLight position={[10, 10, 5]} intensity={1.0} />
             
-            {articles.map((article, idx) => (
+            {filteredArticles.map((article, idx) => (
               <ArticleNode 
                 key={article.id} 
                 article={article} 
@@ -197,7 +207,7 @@ export default function Articles() {
               />
             ))}
 
-            <TimelineCamera />
+            <TimelineCamera activeCount={filteredArticles.length} />
           </Suspense>
         </Canvas>
       </div>
@@ -209,10 +219,10 @@ export default function Articles() {
           Timeline Navigator
         </span>
         <h1 className="text-3xl sm:text-4xl font-black tracking-tighter mt-3 drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
-          Transmission <span className="text-[#00FFC2]">Nodes</span>
+          Transmission <span className="text-[#00FFC2]">{activeCategory === 'all' ? 'Nodes' : activeCategory}</span>
         </h1>
-        <p className="text-[10px] text-white/40 uppercase tracking-wider font-bold mt-1.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-          Scroll down to fly through the archive
+        <p className="text-[10px] text-white/40 uppercase tracking-wider font-bold mt-1.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] font-mono">
+          {filteredArticles.length} active transmissions found — scroll to navigate
         </p>
       </div>
 
@@ -294,5 +304,13 @@ export default function Articles() {
       {/* Spacer container to provide document scrolling length */}
       <div className="relative w-full h-[350vh] pointer-events-none z-0" />
     </div>
+  );
+}
+
+export default function Articles() {
+  return (
+    <Suspense fallback={null}>
+      <ArticlesContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Navigation } from '@/components/Navigation';
+import { Suspense } from 'react';
 
 export const metadata: Metadata = {
   title: 'TECH_SYNC.',
@@ -11,8 +12,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen bg-[#050505] text-white flex flex-col font-sans" suppressHydrationWarning>
-        <Navigation />
+        <Suspense fallback={<div className="h-[65px] bg-[#050505] border-b border-white/10" />}>
+          <Navigation />
+        </Suspense>
         <main className="flex-1 flex flex-col">{children}</main>
+
         
         {/* Bottom Ticker */}
         <div className="bg-[#00FFC2] text-black h-8 shrink-0 flex items-center overflow-hidden">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, Suspense } from 'react';
 import HeroCanvas from '@/components/HeroCanvas';
 import { ArrowRight, Cpu, Shield, Container, Brain } from 'lucide-react';
 import { TextScramble } from '@/components/ui/TextScramble';
@@ -8,6 +8,7 @@ import { InteractiveCard } from '@/components/ui/InteractiveCard';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { mockArticles } from '@/lib/mock-articles';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const categories = [
   { name: 'DevOps', icon: Container },
@@ -16,9 +17,13 @@ const categories = [
   { name: 'Cyber SOC', icon: Shield },
 ];
 
-export default function Home() {
+function HomeContent() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [articles, setArticles] = useState<any[]>(mockArticles);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const activeCategory = searchParams.get('category') || 'all';
 
   useEffect(() => {
     async function fetchHomeArticles() {
@@ -51,6 +56,19 @@ export default function Home() {
     el.style.setProperty('--mx', `${x}%`);
     el.style.setProperty('--my', `${y}%`);
   };
+
+  const handleCategoryClick = (name: string) => {
+    if (activeCategory.toLowerCase() === name.toLowerCase()) {
+      router.push('/?category=all');
+    } else {
+      router.push(`/?category=${name}`);
+    }
+  };
+
+  // Filter articles based on active search parameters
+  const filteredArticles = activeCategory.toLowerCase() === 'all' || activeCategory.toLowerCase() === 'network'
+    ? articles
+    : articles.filter(a => a.category.toLowerCase() === activeCategory.toLowerCase());
 
   return (
     <div className="w-full">
@@ -108,17 +126,25 @@ export default function Home() {
       {/* CATEGORY STRIP */}
       <section className="border-y border-white/10 bg-[#080808]/80 sticky top-[65px] z-30 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-start md:justify-center gap-x-8 overflow-x-auto no-scrollbar scroll-smooth whitespace-nowrap">
-          {categories.map(({ name, icon: Icon }) => (
-            <button
-              key={name}
-              className="flex items-center gap-2 text-white/50 hover:text-[#00FFC2] hover:scale-105 transition-all duration-200 cursor-pointer shrink-0"
-            >
-              <Icon className="w-4.5 h-4.5" />
-              <span className="text-xs font-bold uppercase tracking-widest">
-                <TextScramble text={name} trigger="hover" />
-              </span>
-            </button>
-          ))}
+          {categories.map(({ name, icon: Icon }) => {
+            const isActive = activeCategory.toLowerCase() === name.toLowerCase();
+            return (
+              <button
+                key={name}
+                onClick={() => handleCategoryClick(name)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-200 cursor-pointer shrink-0 border ${
+                  isActive 
+                    ? 'text-[#00FFC2] border-[#00FFC2] bg-[#00FFC2]/5 scale-105' 
+                    : 'text-white/50 border-transparent hover:text-[#00FFC2]'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-widest">
+                  <TextScramble text={name} trigger="hover" />
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -126,24 +152,32 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-6 py-20">
         <div className="flex items-end justify-between mb-10 flex-wrap gap-4">
           <h2 className="text-3xl sm:text-4xl font-black tracking-tighter">
-            Latest <TextScramble text="Transmissions" trigger="hover" />
+            Latest <TextScramble text={activeCategory === 'all' ? 'Transmissions' : activeCategory} trigger="both" />
           </h2>
-          <span className="text-xs font-bold uppercase tracking-widest text-white/30">
-            Automated Feed Active
+          <span className="text-xs font-bold uppercase tracking-widest text-white/30 font-mono">
+            {filteredArticles.length} Nodes Found
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {articles.slice(0, 6).map((article, i) => (
-            <InteractiveCard 
-              key={article.id || i} 
-              category={article.category}
-              title={article.title}
-              excerpt={article.summary || article.excerpt}
-              date={article.date}
-            />
-          ))}
-        </div>
+        {filteredArticles.length === 0 ? (
+          <div className="text-center py-20 border border-dashed border-white/10 rounded-2xl bg-[#080808]/40">
+            <span className="text-xs font-bold uppercase tracking-widest text-white/30">
+              No matching transmissions found on the network.
+            </span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredArticles.slice(0, 6).map((article, i) => (
+              <InteractiveCard 
+                key={article.id || i} 
+                category={article.category}
+                title={article.title}
+                excerpt={article.summary || article.excerpt}
+                date={article.date}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* FOOTER CTA */}
@@ -158,5 +192,13 @@ export default function Home() {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   );
 }
