@@ -9,17 +9,17 @@ import { db } from '@/lib/firebase';
 import { mockArticles, MockArticle } from '@/lib/mock-articles';
 import { TextScramble } from '@/components/ui/TextScramble';
 
-const getPosition = (index: number) => {
+const getPosition = (index: number, isMobile: boolean) => {
   // Stagger nodes in a zig-zag depth pattern
-  const x = index % 2 === 0 ? -1.8 : 1.8;
-  const y = Math.sin(index * 2) * 0.25;
-  const z = index * -6; // 6 units of spacing along Z
+  const x = index % 2 === 0 ? (isMobile ? -0.7 : -1.8) : (isMobile ? 0.7 : 1.8);
+  const y = Math.sin(index * 2) * 0.2;
+  const z = index * -9; // Extended Z spacing for better visual separation
   return [x, y, z] as [number, number, number];
 };
 
 function TimelineCamera() {
-  const { camera } = useThree();
-  const lastScroll = useRef(0);
+  const { camera, viewport } = useThree();
+  const isMobile = viewport.width < 7;
 
   useFrame((state) => {
     const scrollY = typeof window !== 'undefined' ? window.scrollY : 0;
@@ -28,13 +28,13 @@ function TimelineCamera() {
       : 1000;
     const ratio = maxScroll > 0 ? scrollY / maxScroll : 0;
 
-    // Camera flies down the Z axis from +4 down to -32 based on scroll ratio
-    const targetZ = 4 - ratio * 36;
+    // Camera flies down the Z axis from +4 down to -50 based on scroll ratio
+    const targetZ = 4 - ratio * 54;
     camera.position.z += (targetZ - camera.position.z) * 0.08;
 
-    // Mouse-movement reactive sway on X/Y
-    const targetX = state.pointer.x * 0.6;
-    const targetY = state.pointer.y * 0.3;
+    // Mouse-movement reactive sway on X/Y (disabled on mobile)
+    const targetX = isMobile ? 0 : state.pointer.x * 0.6;
+    const targetY = isMobile ? 0 : state.pointer.y * 0.3;
     camera.position.x += (targetX - camera.position.x) * 0.06;
     camera.position.y += (targetY - camera.position.y) * 0.06;
 
@@ -56,7 +56,9 @@ function ArticleNode({
 }) {
   const meshRef = useRef<any>(null!);
   const [hovered, setHovered] = useState(false);
-  const position = getPosition(index);
+  const { viewport } = useThree();
+  const isMobile = viewport.width < 7;
+  const position = getPosition(index, isMobile);
 
   useFrame((state) => {
     if (meshRef.current) {
@@ -122,14 +124,14 @@ function ArticleNode({
           transform
           occlude
           pointerEvents="none"
-          className="w-[230px] h-[140px] select-none p-4 flex flex-col justify-between"
+          className="w-[230px] h-[140px] select-none p-4 flex flex-col justify-between bg-[#080808]/90 border border-white/10 rounded-xl backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.8)]"
         >
           <div className="flex flex-col h-full justify-between select-none">
             <div>
-              <span className="text-[7px] font-black uppercase tracking-widest text-[#00FFC2]">{article.category}</span>
-              <h3 className="text-[9.5px] font-extrabold text-white mt-1 leading-snug line-clamp-2 select-none">{article.title}</h3>
+              <span className="text-[7.5px] font-black uppercase tracking-widest text-[#00FFC2]">{article.category}</span>
+              <h3 className="text-[10px] font-extrabold text-white mt-1 leading-snug line-clamp-3 select-none">{article.title}</h3>
             </div>
-            <div className="flex items-center justify-between text-[7px] font-bold text-white/40 uppercase tracking-wider select-none">
+            <div className="flex items-center justify-between text-[7.5px] font-bold text-white/40 uppercase tracking-wider select-none">
               <span>{article.date}</span>
               <span className="text-[#00FFC2] flex items-center gap-0.5 animate-pulse">
                 Details <ArrowRight className="w-1.5 h-1.5" />
@@ -230,7 +232,7 @@ export default function Articles() {
                 </span>
                 <button 
                   onClick={() => setSelectedArticle(null)}
-                  className="text-white/60 hover:text-white transition-colors bg-white/5 border border-white/10 p-1.5 rounded-full"
+                  className="text-white/60 hover:text-white transition-colors bg-white/5 border border-white/10 p-1.5 rounded-full hover:scale-105 duration-200"
                 >
                   <X className="w-4.5 h-4.5" />
                 </button>
