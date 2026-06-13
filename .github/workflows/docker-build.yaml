@@ -13,6 +13,10 @@ jobs:
     permissions:
       contents: read
 
+    env:
+      CLUSTER_NAME: ai-news-eks
+      NAMESPACE: ai-news
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,8 +28,17 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Verify AWS Identity
+        run: |
+          aws sts get-caller-identity
+
+      - name: Verify EKS Access
+        run: |
+          aws eks describe-cluster \
+            --name $CLUSTER_NAME \
+            --region ${{ secrets.AWS_REGION }}
+
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build Docker Image
@@ -37,14 +50,14 @@ jobs:
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
           docker tag ai-news-feeder:latest \
-          $ACCOUNT_ID.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
+            $ACCOUNT_ID.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
 
       - name: Push Docker Image
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
           docker push \
-          $ACCOUNT_ID.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
+            $ACCOUNT_ID.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
@@ -53,12 +66,19 @@ jobs:
         run: |
           aws eks update-kubeconfig \
             --region ${{ secrets.AWS_REGION }} \
-            --name ai-news-eks
+            --name $CLUSTER_NAME
+
+      - name: Verify cluster connection
+        run: |
+          kubectl get nodes
 
       - name: Restart Deployment
         run: |
-          kubectl rollout restart deployment/ai-news-feeder -n ai-news
+          kubectl rollout restart deployment/ai-news-feeder \
+            -n $NAMESPACE
 
       - name: Wait for Rollout
         run: |
-          kubectl rollout status deployment/ai-news-feeder -n ai-news --timeout=300s
+          kubectl rollout status deployment/ai-news-feeder \
+            -n $NAMESPACE \
+            --timeout=300s
