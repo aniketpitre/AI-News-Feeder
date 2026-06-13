@@ -1,27 +1,57 @@
+'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
+import { Zap } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const AddPostModal = dynamic(() => import('./AddPostModal'), { ssr: false });
 
 export function Navigation() {
+  const [showAdd, setShowAdd] = useState(false);
+
   return (
-    <nav className="flex items-center justify-between px-8 py-4 border-b border-white/10 shrink-0">
+    <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-4 bg-[#050505]/80 backdrop-blur-md border-b border-white/10 shrink-0">
       <div className="flex items-center gap-8">
-        <Link href="/" className="text-2xl font-black tracking-tighter text-[#00FFC2]">
-          TECH_SYNC<span className="text-white">.</span>
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-gradient-to-br from-[#00FFC2] to-[#00D9FF] rounded-full flex items-center justify-center">
+            <Zap className="w-5 h-5 text-black" />
+          </div>
+          <span className="text-2xl font-black tracking-tighter bg-gradient-to-r from-[#00FFC2] to-[#00D9FF] bg-clip-text text-transparent">
+            TECH_SYNC
+          </span>
         </Link>
-        <div className="hidden md:flex gap-6 text-sm font-medium text-white/60 uppercase tracking-widest">
-          <Link href="/" className="text-white border-b-2 border-[#00FFC2] pb-1">Network</Link>
-          <Link href="#" className="hover:text-white transition-colors">DevOps</Link>
-          <Link href="#" className="hover:text-white transition-colors">K8s</Link>
-          <Link href="#" className="hover:text-white transition-colors">AI/ML</Link>
-          <Link href="#" className="hover:text-white transition-colors">Cyber SOC</Link>
+        
+        <div className="hidden lg:flex gap-8 text-sm font-medium text-white/60 uppercase tracking-widest">
+          <Link href="/" className="text-white/80 hover:text-[#00FFC2] transition-colors duration-300">
+            Latest
+          </Link>
+          <Link href="#trending" className="hover:text-[#00FFC2] transition-colors duration-300">
+            Trending
+          </Link>
+          <a href="#categories" className="hover:text-[#00FFC2] transition-colors duration-300">
+            Categories
+          </a>
+          <a href="#about" className="hover:text-[#00FFC2] transition-colors duration-300">
+            About
+          </a>
         </div>
       </div>
+
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full">
+        <div className="flex items-center gap-2 bg-white/5 border border-white/20 px-3 py-1.5 rounded-full hover:border-[#00FFC2]/50 transition-colors duration-300">
           <span className="w-2 h-2 bg-[#00FFC2] rounded-full animate-pulse"></span>
-          <span className="text-[10px] font-bold uppercase tracking-tighter">AI Aggregator: Active</span>
+          <span className="text-[10px] font-bold uppercase tracking-tighter text-white/70">Live</span>
         </div>
-        <div className="bg-[#00FFC2] text-black px-4 py-1.5 rounded-full text-xs font-bold uppercase">Review Queue (14)</div>
+
+        <button onClick={() => setShowAdd(true)} className="px-4 py-1 rounded bg-white/5 text-sm hover:bg-white/10 transition">Add Post</button>
+
+        <Link href="#newsletter" className="bg-gradient-to-r from-[#00FFC2] to-[#00D9FF] text-black px-6 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider hover:shadow-lg hover:shadow-[#00FFC2]/20 transition-all duration-300">
+          Subscribe
+        </Link>
       </div>
+
+      {showAdd && <AddPostModal onClose={() => setShowAdd(false)} />}
     </nav>
   );
 }

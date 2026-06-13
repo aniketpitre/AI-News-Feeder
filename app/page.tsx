@@ -1,126 +1,326 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { ArticleCard } from '@/components/ArticleCard';
+import { Sparkles, Zap, TrendingUp, Search } from 'lucide-react';
+
+interface Article {
+  id: string;
+  title: string;
+  url: string;
+  summary: string;
+  topics: string[];
+  sourceName: string;
+  publishedAt: number;
+  createdAt: number;
+}
+
+const CATEGORIES = [
+  'AI',
+  'ML',
+  'LLMs',
+  'DevOps',
+  'Kubernetes',
+  'Docker',
+  'Cybersecurity',
+  'Cloud',
+  'Security',
+  'Development',
+];
+
 export default function Home() {
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [filteredArticles, setFilteredArticles] = useState<Article[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Fetch articles from API
+    const fetchArticles = async () => {
+      try {
+        const response = await fetch('/api/articles');
+        const data = await response.json();
+        setArticles(data.articles || []);
+        setTrendingTopics(data.trendingTopics || []);
+      } catch (error) {
+        console.error('Failed to fetch articles:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchArticles();
+
+    // Trigger sync in background
+    fetch('/api/sync', { method: 'POST' }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let filtered = articles;
+
+    // Filter by category
+    if (selectedCategory) {
+      filtered = filtered.filter(article => article.topics.includes(selectedCategory));
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        article =>
+          article.title.toLowerCase().includes(query) ||
+          article.summary.toLowerCase().includes(query)
+      );
+    }
+
+    setFilteredArticles(filtered);
+  }, [articles, selectedCategory, searchQuery]);
+
+  const featuredArticle = articles[0];
+
   return (
-    <div className="flex-1 grid grid-cols-1 md:grid-cols-12 grid-rows-6 gap-px bg-white/10 h-full overflow-y-auto md:overflow-hidden">
-      
-      {/* Main Featured Article */}
-      <div className="md:col-span-8 md:row-span-4 bg-[#080808] p-10 flex flex-col justify-end relative group min-h-[400px]">
-        <div className="absolute top-10 left-10 text-[10px] font-bold tracking-[0.2em] text-[#00FFC2] uppercase mb-4 px-2 py-1 border border-[#00FFC2]">
-          Top Story / Infrastructure
+    <div className="min-h-screen bg-[#050505] pt-24 pb-20 overflow-x-hidden">
+      {/* Hero Section with 3D Background */}
+      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden px-4 md:px-8">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Large background gradient orbs */}
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#00FFC2]/20 rounded-full blur-3xl animate-blob" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#00D9FF]/20 rounded-full blur-3xl animate-blob animation-delay-2000" />
+          <div className="absolute top-1/2 right-0 w-96 h-96 bg-[#0080FF]/10 rounded-full blur-3xl animate-blob animation-delay-4000" />
+
+          {/* Grid pattern */}
+          <div className="absolute inset-0 opacity-10" style={{
+            backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(0, 255, 194, .1) 25%, rgba(0, 255, 194, .1) 26%, transparent 27%, transparent 74%, rgba(0, 255, 194, .1) 75%, rgba(0, 255, 194, .1) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(0, 255, 194, .1) 25%, rgba(0, 255, 194, .1) 26%, transparent 27%, transparent 74%, rgba(0, 255, 194, .1) 75%, rgba(0, 255, 194, .1) 76%, transparent 77%, transparent)',
+            backgroundSize: '50px 50px',
+          }} />
         </div>
-        <h1 className="text-5xl md:text-7xl font-black leading-[0.9] tracking-tighter mb-6">
-          KUBERNETES AT EDGE:<br/><span className="text-[#00FFC2]">LLM DEPLOYMENT</span><br/>REDEFINED.
-        </h1>
-        <div className="flex items-center gap-6">
-          <p className="text-white/40 max-w-md text-sm leading-relaxed">
-            New automated pipelines are bridging the gap between heavy SOC monitoring and light-weight edge nodes using quantized LLMs for real-time threat detection.
+
+        <div className="relative z-10 max-w-6xl w-full">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-12"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6 }}
+              className="inline-block mb-6"
+            >
+              <div className="flex items-center gap-2 px-4 py-2 bg-[#00FFC2]/10 border border-[#00FFC2]/50 rounded-full">
+                <Sparkles className="w-4 h-4 text-[#00FFC2]" />
+                <span className="text-sm font-bold uppercase tracking-wider text-[#00FFC2]">
+                  AI-Powered News Aggregation
+                </span>
+              </div>
+            </motion.div>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.1 }}
+              className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tighter mb-6 text-white"
+            >
+              Future Tech News,
+              <br />
+              <span className="bg-gradient-to-r from-[#00FFC2] via-[#00D9FF] to-[#0080FF] bg-clip-text text-transparent animate-pulse">
+                Today
+              </span>
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="text-xl md:text-2xl text-white/70 max-w-2xl mx-auto leading-relaxed mb-8"
+            >
+              Discover the latest in AI, DevOps, Kubernetes, and emerging technologies. Automatically curated and enriched by advanced AI.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+              className="flex flex-col md:flex-row gap-4 justify-center"
+            >
+              <button className="px-8 py-4 bg-gradient-to-r from-[#00FFC2] to-[#00D9FF] text-black font-bold uppercase tracking-wider rounded-lg hover:shadow-lg hover:shadow-[#00FFC2]/50 transition-all duration-300 flex items-center gap-2 justify-center">
+                <Zap className="w-5 h-5" />
+                Explore Latest News
+              </button>
+              <button className="px-8 py-4 border-2 border-[#00FFC2]/50 text-white font-bold uppercase tracking-wider rounded-lg hover:border-[#00FFC2] hover:bg-[#00FFC2]/5 transition-all duration-300">
+                Subscribe for Updates
+              </button>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Featured Article */}
+      {featuredArticle && (
+        <section className="max-w-7xl mx-auto px-4 md:px-8 mb-32">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
+            <ArticleCard article={featuredArticle} variant="featured" />
+          </motion.div>
+        </section>
+      )}
+
+      {/* Search and Filter Section */}
+      <section className="max-w-7xl mx-auto px-4 md:px-8 mb-20">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+          className="space-y-6"
+        >
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-4 top-4 w-5 h-5 text-white/40" />
+            <input
+              type="text"
+              placeholder="Search articles..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-6 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-[#00FFC2] focus:ring-2 focus:ring-[#00FFC2]/20 transition-all"
+            />
+          </div>
+
+          {/* Categories */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-white/50">Filter by Category</h3>
+            <div className="flex flex-wrap gap-2">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setSelectedCategory(null)}
+                className={`px-4 py-2 rounded-lg font-mono text-xs uppercase tracking-wider transition-all ${
+                  selectedCategory === null
+                    ? 'bg-[#00FFC2] text-black'
+                    : 'bg-white/10 text-white/70 hover:bg-white/20'
+                }`}
+              >
+                All
+              </motion.button>
+              {CATEGORIES.map((category) => (
+                <motion.button
+                  key={category}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedCategory(selectedCategory === category ? null : category)}
+                  className={`px-4 py-2 rounded-lg font-mono text-xs uppercase tracking-wider transition-all ${
+                    selectedCategory === category
+                      ? 'bg-[#00FFC2] text-black'
+                      : 'bg-white/10 text-white/70 hover:bg-white/20'
+                  }`}
+                >
+                  {category}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Latest Articles Section */}
+      <section className="max-w-7xl mx-auto px-4 md:px-8 mb-20">
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+        >
+          <h2 className="text-4xl md:text-5xl font-black mb-2">
+            {selectedCategory ? `${selectedCategory} News` : 'Latest Articles'}
+          </h2>
+          <p className="text-white/60 mb-8">
+            {filteredArticles.length} {selectedCategory ? `${selectedCategory} ` : ''}article{filteredArticles.length !== 1 ? 's' : ''} available
           </p>
-          <div className="h-12 w-12 border border-white/20 rounded-full flex items-center justify-center text-[#00FFC2] shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
-          </div>
-        </div>
-      </div>
 
-      {/* Right Sidebar: Live RSS Feed/Aggregator Stats */}
-      <div className="md:col-span-4 md:row-span-4 bg-[#0A0A0A] p-6 flex flex-col">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-white/50">Live AI Feed Synthesis</h2>
-          <span className="text-[10px] text-[#00FFC2] font-mono animate-pulse">SCANNING...</span>
-        </div>
-        
-        <div className="space-y-4 overflow-y-auto flex-1 pb-4">
-          {/* Feed Item */}
-          <div className="p-4 bg-white/5 border-l-2 border-[#00FFC2] flex flex-col gap-2">
-            <div className="flex justify-between text-[10px] font-mono text-white/40 uppercase">
-              <span>Source: Reuters / Tech</span>
-              <span>2m ago</span>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-96 bg-white/5 rounded-xl animate-pulse" />
+              ))}
             </div>
-            <h3 className="text-sm font-bold leading-snug">NVIDIA Blackwell Architecture: First Benchmarks Released for LLM Training</h3>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="text-[9px] px-1.5 py-0.5 bg-indigo-500/20 text-indigo-300 rounded">AI DRAFT READY</span>
-              <span className="text-[9px] px-1.5 py-0.5 bg-white/10 text-white/60 rounded">NEEDS HUMAN OVERSIGHT</span>
+          ) : filteredArticles.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-white/60 text-lg">No articles found</p>
             </div>
-          </div>
-          
-          <div className="p-4 bg-transparent border-l-2 border-white/10 flex flex-col gap-2 opacity-60">
-            <div className="flex justify-between text-[10px] font-mono text-white/40 uppercase">
-              <span>Source: arXiv.org</span>
-              <span>14m ago</span>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredArticles.map((article, index) => (
+                <ArticleCard key={article.id} article={article} variant="grid" index={index} />
+              ))}
             </div>
-            <h3 className="text-sm font-bold leading-snug">Zero-shot Knowledge Distillation in Kubernetes-Native Agents</h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[9px] px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 rounded">PROCESSING</span>
-            </div>
-          </div>
+          )}
+        </motion.div>
+      </section>
 
-          <div className="p-4 bg-transparent border-l-2 border-white/10 flex flex-col gap-2 opacity-40">
-            <div className="flex justify-between text-[10px] font-mono text-white/40 uppercase">
-              <span>Source: GitHub / Security</span>
-              <span>42m ago</span>
+      {/* Trending Topics */}
+      {trendingTopics.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 md:px-8 mb-20">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-r from-[#00FFC2]/10 to-[#00D9FF]/10 border border-[#00FFC2]/30 rounded-2xl p-8"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <TrendingUp className="w-6 h-6 text-[#00FFC2]" />
+              <h3 className="text-2xl font-bold">Trending Topics</h3>
             </div>
-            <h3 className="text-sm font-bold leading-snug">Critical Zero-Day in Core DNS Resolution Chains Patch Released</h3>
+            <div className="flex flex-wrap gap-3">
+              {trendingTopics.slice(0, 8).map((topic) => (
+                <motion.button
+                  key={topic}
+                  whileHover={{ scale: 1.1, translateY: -2 }}
+                  onClick={() => setSelectedCategory(topic)}
+                  className="px-6 py-2 bg-white/10 border border-white/20 rounded-full font-mono text-sm uppercase tracking-wider hover:border-[#00FFC2] hover:bg-[#00FFC2]/10 transition-all"
+                >
+                  {topic}
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        </section>
+      )}
+
+      {/* Footer CTA */}
+      <section className="max-w-7xl mx-auto px-4 md:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+          className="bg-gradient-to-r from-[#00FFC2]/20 to-[#00D9FF]/20 border border-[#00FFC2]/50 rounded-2xl p-12 text-center"
+        >
+          <h3 className="text-3xl font-black mb-4">Never Miss a Story</h3>
+          <p className="text-white/70 mb-8 max-w-2xl mx-auto">
+            Get the latest tech news delivered to your inbox. Articles are curated and enriched by AI for better insights.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+            <input
+              type="email"
+              placeholder="Enter your email"
+              className="flex-1 px-6 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-[#00FFC2] transition-all"
+            />
+            <button className="px-8 py-3 bg-gradient-to-r from-[#00FFC2] to-[#00D9FF] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00FFC2]/50 transition-all">
+              Subscribe
+            </button>
           </div>
-        </div>
-        
-        <div className="mt-auto pt-4 border-t border-white/10">
-          <button className="w-full py-4 border border-white/10 text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all">
-            Open Content Studio
-          </button>
-        </div>
-      </div>
-
-      {/* Bottom Section: Secondary News Tiles */}
-      <div className="md:col-span-3 md:row-span-2 bg-[#080808] p-6 flex flex-col">
-        <span className="text-[9px] font-mono text-[#00FFC2] mb-2 uppercase">Cyber Defense</span>
-        <h4 className="text-lg font-bold leading-tight mb-4 group-hover:text-[#00FFC2] transition-colors cursor-pointer">
-          SOC Operations: Automating Incident Response with GPT-5 Engines
-        </h4>
-        <div className="mt-auto flex items-center justify-between">
-          <span className="text-[10px] text-white/40">8.2k Views</span>
-          <span className="text-[10px] text-white/40">Jun 14</span>
-        </div>
-      </div>
-
-      <div className="md:col-span-3 md:row-span-2 bg-[#0C0C0C] p-6 flex flex-col">
-        <span className="text-[9px] font-mono text-[#00FFC2] mb-2 uppercase">DevOps Culture</span>
-        <h4 className="text-lg font-bold leading-tight mb-4 cursor-pointer hover:text-white/80">
-          Why Platform Engineering is Swallowing Traditional DevOps Roles in 2024
-        </h4>
-        <div className="mt-auto flex items-center justify-between">
-          <span className="text-[10px] text-white/40">12.5k Views</span>
-          <span className="text-[10px] text-white/40">Jun 13</span>
-        </div>
-      </div>
-
-      <div className="md:col-span-6 md:row-span-2 bg-[#050505] p-6 flex flex-col justify-center relative overflow-hidden">
-        {/* Data Visualization Ornament */}
-        <div className="absolute right-0 top-0 bottom-0 w-32 flex items-end gap-1 p-2 opacity-20 pointer-events-none">
-          <div className="bg-[#00FFC2] w-2 h-1/4"></div>
-          <div className="bg-[#00FFC2] w-2 h-2/4"></div>
-          <div className="bg-[#00FFC2] w-2 h-3/4"></div>
-          <div className="bg-[#00FFC2] w-2 h-1/2"></div>
-          <div className="bg-[#00FFC2] w-2 h-full"></div>
-        </div>
-        
-        <div className="flex flex-col gap-2 z-10 relative">
-          <div className="text-xs font-bold uppercase tracking-widest text-white">AI System Health</div>
-          <div className="grid grid-cols-3 gap-8 mt-2">
-            <div>
-              <div className="text-2xl font-mono text-[#00FFC2]">99.4%</div>
-              <div className="text-[9px] uppercase tracking-wider text-white/40">Accuracy Rate</div>
-            </div>
-            <div>
-              <div className="text-2xl font-mono text-white">1.2s</div>
-              <div className="text-[9px] uppercase tracking-wider text-white/40">Synthesis Latency</div>
-            </div>
-            <div>
-              <div className="text-2xl font-mono text-white">4.2k</div>
-              <div className="text-[9px] uppercase tracking-wider text-white/40">Sources Scanned</div>
-            </div>
-          </div>
-        </div>
-      </div>
+        </motion.div>
+      </section>
     </div>
   );
 }

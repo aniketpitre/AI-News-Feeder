@@ -1,6 +1,20 @@
 {
-  "name": "TECH_SYNC.",
-  "description": "AI-driven technology news aggregation portal with Elegant Dark design.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "TECH_SYNC",
+  "description": "AI-powered technology news aggregation platform with automated RSS feed curation and Gemini-enriched content.",
+  "author": "Tech Enthusiasts",
+  "version": "2.0.0",
+  "features": [
+    "AI-driven news aggregation",
+    "Automatic RSS feed synchronization",
+    "Real-time article curation",
+    "3D interactive UI",
+    "Auto-publishing workflow",
+    "Zero database required"
+  ],
+  "majorCapabilities": [
+    "Gemini AI API Integration",
+    "RSS Feed Parsing",
+    "Real-time Updates",
+    "Interactive 3D Design"
+  ]
 }

@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { XMLParser } from 'fast-xml-parser';
 import { GoogleGenAI, Type } from '@google/genai';
+import { articleStore } from '@/lib/article-store';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function POST(req: NextRequest) {
   try {
-    const { feedUrl } = await req.json();
+    const { feedUrl, sourceName, topic } = await req.json();
     if (!feedUrl) {
       return NextResponse.json({ error: 'feedUrl is required' }, { status: 400 });
     }
 
     const response = await fetch(feedUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) IglooTech RSS Aggregator',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) TECH_SYNC News Aggregator',
       },
     });
 
@@ -32,8 +33,8 @@ export async function POST(req: NextRequest) {
     // Normalize to array
     const items = Array.isArray(rawItems) ? rawItems : [rawItems];
 
-    // Pick top 5 recent items to avoid very long processing initially
-    const recentItems = items.slice(0, 5).map((item: any) => ({
+    // Pick top 10 recent items
+    const recentItems = items.slice(0, 10).map((item: any) => ({
       title: item.title,
       link: item.link?.href || item.link || '',
       description: item.description || item.content || item['content:encoded'] || '',
@@ -41,14 +42,13 @@ export async function POST(req: NextRequest) {
     }));
 
     if (recentItems.length === 0) {
-      return NextResponse.json({ items: [] });
+      return NextResponse.json({ items: [], added: 0 });
     }
 
-    // Now call Gemini to aggregate, summarize, and categorize.
-    // We batch process to save time, or do it sequentially if few.
     const enrichedItems = [];
+    let added = 0;
     
-    // Process sequentially (up to 5 items)
+    // Process sequentially
     for (const item of recentItems) {
       if (!item.title || !item.link) continue;
       
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
         Content Snippet: ${item.description.substring(0, 800)}...
         
         Provide a concise, professional summary for a tech-savvy audience (like XDA or advanced IT news).
-        Also provide up to 3 relevant tech topics (e.g., AI, DevOps, Cybersecurity, LLMs, Kubernetes).
+        Also provide up to 3 relevant tech topics from: AI, ML, LLMs, DevOps, Kubernetes, Docker, Cybersecurity, SOC, Cloud, Infrastructure, Networking, Security, Development, Open Source, GitHub, Linux, Node.js, Python, TypeScript, Web3, Blockchain, Quantum Computing, Edge Computing, IoT, 5G, or other relevant tech categories.
       `;
 
       try {
@@ -86,29 +86,49 @@ export async function POST(req: NextRequest) {
         });
         
         const data = JSON.parse(genRes.text || "{}");
-        enrichedItems.push({
+        const article = {
+          id: `${Date.now()}-${Math.random()}`,
           title: item.title,
           url: item.link,
-          content: item.description, // original content (can be html)
+          content: item.description,
           summary: data.summary || "",
-          topics: data.topics || [],
+          topics: data.topics || [topic || 'Tech'],
+          sourceName: sourceName || 'Tech News',
           publishedAt: item.pubDate ? new Date(item.pubDate).getTime() : Date.now(),
-        });
+          createdAt: Date.now(),
+        };
+
+        articleStore.addArticle(article);
+        enrichedItems.push(article);
+        added++;
       } catch (err) {
         console.error("Gemini failed for item:", item.title, err);
-        // Fallback
-        enrichedItems.push({
+        // Fallback - still add the article
+        const article = {
+          id: `${Date.now()}-${Math.random()}`,
           title: item.title,
           url: item.link,
           content: item.description,
           summary: item.description.substring(0, 200) + '...',
-          topics: ['General Tech'],
+          topics: [topic || 'Tech'],
+          sourceName: sourceName || 'Tech News',
           publishedAt: item.pubDate ? new Date(item.pubDate).getTime() : Date.now(),
-        });
+          createdAt: Date.now(),
+        };
+        
+        articleStore.addArticle(article);
+        enrichedItems.push(article);
+        added++;
       }
     }
 
-    return NextResponse.json({ items: enrichedItems });
+    articleStore.setLastSyncAt(Date.now());
+
+    return NextResponse.json({ 
+      items: enrichedItems,
+      added,
+      message: `Synced ${added} articles from ${sourceName || 'source'}`
+    });
   } catch (err: any) {
     console.error('RSS parse error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
