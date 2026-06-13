@@ -1,0 +1,6 @@
+{
+  "name": "TECH_SYNC.",
+  "description": "AI-driven technology news aggregation portal with Elegant Dark design.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

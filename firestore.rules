@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      // Allow the creator email as the initial admin
+      return isSignedIn() && request.auth.token.email_verified == true && request.auth.token.email == 'pitreaniket@gmail.com';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidFeed(data) {
+      return data.keys().hasAll(['name', 'url', 'isActive', 'createdAt', 'updatedAt']) 
+          && data.name is string && data.name.size() <= 200
+          && data.url is string && data.url.size() <= 1000
+          && data.isActive is bool
+          && data.createdAt is number
+          && data.updatedAt is number
+          && (('topic' in data && data.topic is string && data.topic.size() <= 100) || !('topic' in data))
+          && (('autoPublish' in data && data.autoPublish is bool) || !('autoPublish' in data));
+    }
+
+    match /feeds/{feedId} {
+      allow read: if isAdmin();
+      
+      allow create: if isAdmin()
+        && isValidId(feedId)
+        && isValidFeed(incoming());
+        // removed exactly createdAt == request.time check as Date.now() is a number
+        
+      allow update: if isAdmin()
+        && isValidId(feedId)
+        && isValidFeed(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'url', 'isActive', 'topic', 'autoPublish', 'updatedAt']);
+        
+      allow delete: if isAdmin();
+    }
+
+    function isValidArticle(data) {
+      return data.keys().hasAll(['title', 'url', 'status', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() <= 500
+        && data.url is string && data.url.size() <= 1000
+        && data.status is string && data.status in ['published', 'draft', 'rejected']
+        && data.createdAt is number
+        && data.updatedAt is number
+        && (('summary' in data && data.summary is string && data.summary.size() <= 50000) || !('summary' in data))
+        && (('content' in data && data.content is string && data.content.size() <= 200000) || !('content' in data))
+        && (('topics' in data && data.topics is list && data.topics.size() <= 20 && (data.topics.size() == 0 || data.topics[0] is string)) || !('topics' in data))
+        && (('sourceId' in data && data.sourceId is string && data.sourceId.size() <= 128) || !('sourceId' in data))
+        && (('sourceName' in data && data.sourceName is string && data.sourceName.size() <= 200) || !('sourceName' in data))
+        && (('publishedAt' in data && data.publishedAt is number) || !('publishedAt' in data))
+        && (('imageUrl' in data && data.imageUrl is string && data.imageUrl.size() <= 1000) || !('imageUrl' in data));
+    }
+
+    match /articles/{articleId} {
+      allow read: if (existing().status == 'published') || isAdmin();
+      
+      allow create: if isAdmin()
+        && isValidId(articleId)
+        && isValidArticle(incoming());
+        
+      allow update: if isAdmin()
+        && isValidId(articleId)
+        && isValidArticle(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'url', 'status', 'summary', 'content', 'topics', 'sourceId', 'sourceName', 'publishedAt', 'updatedAt', 'imageUrl'
+        ]);
+        
+      allow delete: if isAdmin();
+    }
+  }
+}
