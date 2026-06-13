@@ -1,41 +1,64 @@
-TECH_SYNC.
+# TECH_SYNC.
+
 An AI-driven technology news aggregation portal with an "Elegant Dark" theme, featuring an interactive, igloo.inc-inspired 3D hero section built with React Three Fiber.
-Features
 
-Interactive 3D Hero — a mouse-reactive distorted neon orb with orbiting satellites, parallax camera movement, and a cursor-following gradient headline
-News Grid — placeholder layout for DevOps, Kubernetes, AI/ML, and Cyber SOC articles (added manually)
-RSS Aggregation API — /api/rss/parse fetches and summarizes RSS feeds via the Gemini API
-Firebase Integration — auth and Firestore setup for future content management
+## Features
 
-Tech Stack
+- **Interactive 3D Hero** — a mouse-reactive distorted neon orb with orbiting satellites, parallax camera movement, and a cursor-following gradient headline
+- **News Grid** — placeholder layout for DevOps, Kubernetes, AI/ML, and Cyber SOC articles (added manually)
+- **RSS Aggregation API** — `/api/rss/parse` fetches and summarizes RSS feeds via the Gemini API
+- **Firebase Integration** — auth and Firestore setup for future content management
 
-Next.js 15 (App Router) + React 19
-Tailwind CSS v4
-React Three Fiber + drei for 3D
-Firebase (Auth + Firestore)
-Google Gemini API for article summarization
+## Tech Stack
 
-Getting Started
-Prerequisites
+- [Next.js 15](https://nextjs.org/) (App Router) + React 19
+- [Tailwind CSS v4](https://tailwindcss.com/)
+- [React Three Fiber](https://docs.pmnd.rs/react-three-fiber) + [drei](https://github.com/pmndrs/drei) for 3D
+- [Firebase](https://firebase.google.com/) (Auth + Firestore)
+- [Google Gemini API](https://ai.google.dev/) for article summarization
 
-Node.js 18+
+## Getting Started
 
-Installation
-bashnpm install --legacy-peer-deps
+### Prerequisites
 
---legacy-peer-deps is required due to a peer dependency mismatch between lucide-react and React 19.
+- Node.js 18+
 
-Environment Variables
-Create a .env.local file in the project root:
+### Installation
+
+\`\`\`bash
+npm install --legacy-peer-deps
+\`\`\`
+
+> `--legacy-peer-deps` is required due to a peer dependency mismatch between `lucide-react` and React 19.
+
+### Environment Variables
+
+Create a `.env.local` file in the project root:
+
+\`\`\`
 GEMINI_API_KEY=your_gemini_api_key
-Firebase configuration is read from firebase-applet-config.json.
-Development
-bashnpm run dev
-Open http://localhost:3000.
-Production Build
-bashnpm run build
+\`\`\`
+
+Firebase configuration is read from `firebase-applet-config.json`.
+
+### Development
+
+\`\`\`bash
+npm run dev
+\`\`\`
+
+Open [http://localhost:3000](http://localhost:3000).
+
+### Production Build
+
+\`\`\`bash
+npm run build
 npm run start
-Project Structure
+\`\`\`
+
+## Project Structure
+
+\`\`\`
 app/
   page.tsx          # Homepage with 3D hero + news grid
   layout.tsx        # Root layout, navigation, ticker
@@ -49,7 +72,9 @@ components/
 lib/
   firebase.ts       # Firebase client setup
   firebase-utils.ts # Firestore helper utilities
-Notes
+\`\`\`
 
-Articles are currently added manually; there is no admin/CMS interface in this branch.
-The 3D hero responds to mouse movement — orb distortion, position, and camera parallax all react to cursor position for an interactive feel.
+## Notes
+
+- Articles are currently added manually; there is no admin/CMS interface in this branch.
+- The 3D hero responds to mouse movement — orb distortion, position, and camera parallax all react to cursor position for an interactive feel.
