@@ -1,10 +1,13 @@
 "use client";
 
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import HeroCanvas from '@/components/HeroCanvas';
 import { ArrowRight, Cpu, Shield, Container, Brain } from 'lucide-react';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { InteractiveCard } from '@/components/ui/InteractiveCard';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { mockArticles } from '@/lib/mock-articles';
 
 const categories = [
   { name: 'DevOps', icon: Container },
@@ -13,17 +16,31 @@ const categories = [
   { name: 'Cyber SOC', icon: Shield },
 ];
 
-const placeholderArticles = [
-  { category: 'AI/ML', title: 'Article headline goes here — placeholder', excerpt: 'Short summary text will appear here once articles are added manually.', date: 'TBD' },
-  { category: 'K8s', title: 'Article headline goes here — placeholder', excerpt: 'Short summary text will appear here once articles are added manually.', date: 'TBD' },
-  { category: 'Cyber SOC', title: 'Article headline goes here — placeholder', excerpt: 'Short summary text will appear here once articles are added manually.', date: 'TBD' },
-  { category: 'DevOps', title: 'Article headline goes here — placeholder', excerpt: 'Short summary text will appear here once articles are added manually.', date: 'TBD' },
-  { category: 'AI/ML', title: 'Article headline goes here — placeholder', excerpt: 'Short summary text will appear here once articles are added manually.', date: 'TBD' },
-  { category: 'K8s', title: 'Article headline goes here — placeholder', excerpt: 'Short summary text will appear here once articles are added manually.', date: 'TBD' },
-];
-
 export default function Home() {
   const heroRef = useRef<HTMLDivElement>(null);
+  const [articles, setArticles] = useState<any[]>(mockArticles);
+
+  useEffect(() => {
+    async function fetchHomeArticles() {
+      try {
+        const q = query(collection(db, 'articles'), where('status', '==', 'published'));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const fetched = snapshot.docs.map(doc => ({
+            id: doc.id,
+            category: doc.data().category || 'General',
+            title: doc.data().title || '',
+            excerpt: doc.data().summary || doc.data().content?.substring(0, 120) + '...' || '',
+            date: doc.data().date || 'TBD',
+          }));
+          setArticles(fetched);
+        }
+      } catch (err) {
+        console.error("Home Firestore query failed, using offline mock database", err);
+      }
+    }
+    fetchHomeArticles();
+  }, []);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = heroRef.current;
@@ -112,13 +129,19 @@ export default function Home() {
             Latest <TextScramble text="Transmissions" trigger="hover" />
           </h2>
           <span className="text-xs font-bold uppercase tracking-widest text-white/30">
-            Articles added manually
+            Automated Feed Active
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {placeholderArticles.map((article, i) => (
-            <InteractiveCard key={i} {...article} />
+          {articles.slice(0, 6).map((article, i) => (
+            <InteractiveCard 
+              key={article.id || i} 
+              category={article.category}
+              title={article.title}
+              excerpt={article.summary || article.excerpt}
+              date={article.date}
+            />
           ))}
         </div>
       </section>
@@ -130,7 +153,7 @@ export default function Home() {
             Stay synced with the network<span className="text-[#00FFC2]">.</span>
           </h2>
           <p className="text-sm text-white/40 max-w-md mx-auto">
-            New transmissions are curated and published manually. Check back for updates.
+            New transmissions are automatically parsed and cataloged. Check back for updates.
           </p>
         </div>
       </section>

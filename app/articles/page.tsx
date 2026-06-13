@@ -118,7 +118,7 @@ function ArticleNode({
           />
         </mesh>
 
-        {/* CSS transform projection tag - Rendered 4x larger and scaled back to 0.25 to prevent blurriness */}
+        {/* CSS transform projection tag */}
         <Html
           position={[0, 0, 0.16]}
           transform
@@ -142,7 +142,7 @@ function ArticleNode({
         </Html>
       </mesh>
 
-      {/* Dynamic ambient lights path */}
+      {/* Point lights */}
       <pointLight
         position={[position[0], position[1] + 1.2, position[2]]}
         intensity={hovered ? 2.0 : 0.7}
@@ -224,7 +224,8 @@ export default function Articles() {
       >
         {selectedArticle && (
           <>
-            <div>
+            {/* Scrollable Content Body */}
+            <div className="flex-1 overflow-y-auto pr-2 no-scrollbar mb-4">
               {/* Close Button */}
               <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#00FFC2] flex items-center gap-1.5">
@@ -265,12 +266,12 @@ export default function Articles() {
               </div>
             </div>
 
-            {/* Outbound Link Actions */}
-            <div className="mt-8 border-t border-white/10 pt-6 flex flex-col gap-3">
+            {/* Outbound Link Actions (Sticky bottom container) */}
+            <div className="border-t border-white/10 pt-4 flex flex-col gap-3 shrink-0 bg-[#080808]/10">
               <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">
                 Resource Taxonomy
               </span>
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap gap-2 mb-2">
                 {selectedArticle.topics.map((t, idx) => (
                   <span key={idx} className="bg-white/5 border border-white/10 px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider text-white/50">
                     {t}
