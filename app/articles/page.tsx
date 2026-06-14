@@ -168,11 +168,24 @@ function ArticlesContent() {
         const q = query(collection(db, 'articles'), where('status', '==', 'published'));
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
-          const fetched = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as MockArticle[];
-          fetched.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          const fetched = snapshot.docs.map(doc => {
+            const data = doc.data();
+            const rawDate = data.publishedAt 
+              ? new Date(data.publishedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+              : data.date || 'TBD';
+            return {
+              id: doc.id,
+              title: data.title || '',
+              content: data.content || '',
+              summary: data.summary || '',
+              topics: data.topics || ['General'],
+              url: data.url || '',
+              category: data.topics?.[0] || data.category || 'General',
+              date: rawDate,
+              publishedAt: data.publishedAt || (data.date ? new Date(data.date).getTime() : Date.now())
+            };
+          }) as MockArticle[];
+          fetched.sort((a, b) => b.publishedAt - a.publishedAt);
           setArticles(fetched);
         }
       } catch (err) {

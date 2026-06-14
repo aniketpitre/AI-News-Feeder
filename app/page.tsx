@@ -31,13 +31,21 @@ function HomeContent() {
         const q = query(collection(db, 'articles'), where('status', '==', 'published'));
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
-          const fetched = snapshot.docs.map(doc => ({
-            id: doc.id,
-            category: doc.data().category || 'General',
-            title: doc.data().title || '',
-            excerpt: doc.data().summary || doc.data().content?.substring(0, 120) + '...' || '',
-            date: doc.data().date || 'TBD',
-          }));
+          const fetched = snapshot.docs.map(doc => {
+            const data = doc.data();
+            const rawDate = data.publishedAt 
+              ? new Date(data.publishedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+              : data.date || 'TBD';
+            return {
+              id: doc.id,
+              category: data.topics?.[0] || data.category || 'General',
+              title: data.title || '',
+              excerpt: data.summary || data.content?.substring(0, 120) + '...' || '',
+              date: rawDate,
+              publishedAt: data.publishedAt || (data.date ? new Date(data.date).getTime() : Date.now())
+            };
+          });
+          fetched.sort((a, b) => b.publishedAt - a.publishedAt);
           setArticles(fetched);
         }
       } catch (err) {
