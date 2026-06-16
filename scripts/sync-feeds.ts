@@ -11,21 +11,33 @@ if (getApps().length === 0) {
       initializeApp({ credential: cert(serviceAccount) });
       console.log("Firebase Admin initialized via service account credentials.");
     } catch (e) {
-      console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT environment variable.", e);
+      console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT.", e);
       process.exit(1);
     }
   } else {
     initializeApp({ projectId: "gen-lang-client-0073420653" });
-    console.log("Firebase Admin initialized via projectId configuration.");
+    console.log("Firebase Admin initialized via projectId.");
   }
 }
 
 const db = getFirestore();
 
-// Strip HTML tags and decode HTML entities from RSS descriptions
-function stripHtml(raw: any): string {
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Safely extract string from RSS field (may be object with #text)
+function extractString(raw: any): string {
   if (!raw) return '';
-  const str = typeof raw === 'object' ? JSON.stringify(raw) : String(raw);
+  if (typeof raw === 'object') {
+    return raw['#text'] || raw._ || raw.__cdata || JSON.stringify(raw);
+  }
+  return String(raw);
+}
+
+// Strip HTML tags and decode entities
+function stripHtml(raw: any): string {
+  const str = extractString(raw);
   return str
     .replace(/<[^>]*>/g, ' ')
     .replace(/&amp;/g, '&')
@@ -36,11 +48,23 @@ function stripHtml(raw: any): string {
     .replace(/&#8216;/g, "'")
     .replace(/&#8220;/g, '"')
     .replace(/&#8221;/g, '"')
+    .replace(/&#8230;/g, '...')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-// Call Groq API to summarize and extract topics
+// Clean title — remove URLs and trailing metadata (e.g. SANS stormcast)
+function cleanTitle(raw: any): string {
+  let title = stripHtml(raw);
+  // Remove URLs embedded in title
+  title = title.replace(/https?:\/\/\S+/g, '').trim();
+  // Remove trailing date patterns like ", (Tue, Jun 16th)"
+  title = title.replace(/,\s*\(.*?\)\s*$/, '').trim();
+  // Remove trailing comma
+  title = title.replace(/,\s*$/, '').trim();
+  return title;
+}
+
 async function callGroq(title: string, description: string, feedTopic: string): Promise<{ summary: string; topics: string[] }> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY not set");
@@ -53,7 +77,7 @@ Content: ${description.substring(0, 600)}
 Respond with exactly this JSON structure:
 {"summary": "2-3 sentence professional summary for tech audience", "topics": ["topic1", "topic2"]}
 
-Topics must be specific tech terms from: Kubernetes, DevOps, AI, Machine Learning, LLM, Cybersecurity, Docker, CI/CD, Cloud, Security, MLOps, Infrastructure`;
+Topics must be from: Kubernetes, DevOps, AI, Machine Learning, LLM, Cybersecurity, Docker, CI/CD, Cloud, Security, MLOps, Infrastructure`;
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
@@ -67,6 +91,7 @@ Topics must be specific tech terms from: Kubernetes, DevOps, AI, Machine Learnin
       max_tokens: 300,
       temperature: 0.3,
     }),
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
@@ -134,17 +159,27 @@ async function syncFeeds() {
         const rawItems = parsed.rss?.channel?.item || parsed.feed?.entry || [];
         const items = Array.isArray(rawItems) ? rawItems : [rawItems];
 
-        const recentItems = items.slice(0, 5).map((item: any) => ({
-          title: stripHtml(item.title),
-          link: typeof item.link === 'object' ? (item.link?.['@_href'] || item.link?.href || '') : (item.link || ''),
-          description: stripHtml(item.description || item.content || item['content:encoded'] || item.summary || ''),
-          pubDate: item.pubDate || item.published || item.updated || '',
-        }));
+        const recentItems = items.slice(0, 5).map((item: any) => {
+          const rawLink = item.link;
+          let link = '';
+          if (typeof rawLink === 'string') link = rawLink;
+          else if (typeof rawLink === 'object') link = rawLink?.['@_href'] || rawLink?.href || '';
+
+          return {
+            title: cleanTitle(item.title),
+            link,
+            description: stripHtml(item.description || item.content || item['content:encoded'] || item.summary || ''),
+            pubDate: item.pubDate || item.published || item.updated || '',
+          };
+        });
 
         let newArticlesCount = 0;
 
         for (const item of recentItems) {
           if (!item.title || !item.link) continue;
+
+          // Skip podcast/audio entries from SANS
+          if (item.title.toLowerCase().includes('stormcast') || item.title.toLowerCase().includes('podcastdetail')) continue;
 
           // Dedup check
           const existing = await db.collection('articles')
@@ -157,6 +192,9 @@ async function syncFeeds() {
           console.log(`New article: "${item.title}"`);
           newArticlesCount++;
 
+          // Rate limit: 2.1s between Groq calls = ~28 req/min (under 30 RPM limit)
+          await sleep(2100);
+
           let summaryText = '';
           let extractedTopics: string[] = [feedTopic];
 
@@ -164,14 +202,13 @@ async function syncFeeds() {
             const result = await callGroq(item.title, item.description, feedTopic);
             summaryText = result.summary;
             extractedTopics = result.topics;
-            console.log(`  Groq summary OK. Topics: ${extractedTopics.join(', ')}`);
+            console.log(`  Groq OK. Topics: ${extractedTopics.join(', ')}`);
           } catch (err) {
             console.warn(`  Groq failed, using fallback. ${err}`);
             summaryText = item.description.substring(0, 200) + '...';
             extractedTopics = [feedTopic];
           }
 
-          // Use description as fallback if summary is empty
           if (!summaryText) {
             summaryText = item.description.substring(0, 200) + '...';
           }

@@ -9,6 +9,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { mockArticles } from '@/lib/mock-articles';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { normalizeTopic } from '@/lib/normalize-topic';
 
 const categories = [
   { name: 'DevOps', icon: Container },
@@ -16,54 +17,6 @@ const categories = [
   { name: 'AI/ML', icon: Brain },
   { name: 'Cyber SOC', icon: Shield },
 ];
-
-// Maps Gemini-extracted topics + feed topics to our 4 nav categories
-function normalizeTopic(topics: string[], feedTopic: string): string {
-  const all = [...(topics || []), feedTopic]
-    .filter(Boolean)
-    .map(t => t.toLowerCase());
-
-  if (all.some(t =>
-    t.includes('kubernetes') || t === 'k8s' || t.includes('k8s') ||
-    t.includes('kubectl') || t.includes('helm') || t.includes('cncf') ||
-    t.includes('container orchestration') || t.includes('eks') ||
-    t.includes('k3s') || t.includes('aks') || t.includes('gke')
-  )) return 'K8s';
-
-  if (all.some(t =>
-    t.includes('devops') || t.includes('ci/cd') || t.includes('cicd') ||
-    t.includes('docker') || t.includes('terraform') || t.includes('gitops') ||
-    t.includes('ansible') || t.includes('jenkins') || t.includes('argocd') ||
-    t.includes('pipeline') || t.includes('infrastructure') || t.includes('sre') ||
-    t.includes('site reliability') || t.includes('deployment') ||
-    t.includes('the new stack') || t.includes('circleci') || t.includes('github actions')
-  )) return 'DevOps';
-
-  if (all.some(t =>
-    t.includes('cyber') || t.includes('security') || t.includes('soc') ||
-    t.includes('malware') || t.includes('cve') || t.includes('hacker') ||
-    t.includes('vulnerability') || t.includes('threat') || t.includes('exploit') ||
-    t.includes('ransomware') || t.includes('phishing') || t.includes('breach') ||
-    t.includes('incident') || t.includes('intrusion') || t.includes('zero-day') ||
-    t.includes('cisa') || t.includes('apt') || t.includes('pentest') ||
-    t.includes('firewall') || t.includes('siem') || t.includes('the hacker news') ||
-    t.includes('krebs') || t.includes('bleeping') || t.includes('dark reading')
-  )) return 'Cyber SOC';
-
-  if (all.some(t =>
-    t.includes('ai') || t.includes(' ml') || t.startsWith('ml') ||
-    t.includes('machine learning') || t.includes('deep learning') ||
-    t.includes('llm') || t.includes('large language') || t.includes('neural') ||
-    t.includes('gemini') || t.includes('openai') || t.includes('gpt') ||
-    t.includes('claude') || t.includes('nlp') || t.includes('generative') ||
-    t.includes('model') || t.includes('inference') || t.includes('training') ||
-    t.includes('hugging face') || t.includes('towards data science') ||
-    t.includes('data science') || t.includes('computer vision') ||
-    t.includes('transformer') || t.includes('reinforcement')
-  )) return 'AI/ML';
-
-  return feedTopic || topics?.[0] || 'General';
-}
 
 function HomeContent() {
   const heroRef = useRef<HTMLDivElement>(null);
@@ -85,26 +38,21 @@ function HomeContent() {
               ? new Date(data.publishedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
               : data.date || 'TBD';
 
-            const normalizedCategory = normalizeTopic(
-              data.topics || [],
-              data.category || data.sourceName || ''
-            );
-
             return {
               id: doc.id,
-              category: normalizedCategory,
+              category: normalizeTopic(data.topics || [], data.sourceName || data.category || ''),
               title: data.title || '',
-              excerpt: data.summary || data.content?.substring(0, 120) + '...' || '',
+              excerpt: data.summary || data.content?.substring(0, 150) + '...' || '',
               date: rawDate,
               url: data.url || '',
-              publishedAt: data.publishedAt || (data.date ? new Date(data.date).getTime() : Date.now())
+              publishedAt: data.publishedAt || (data.date ? new Date(data.date).getTime() : Date.now()),
             };
           });
           fetched.sort((a, b) => b.publishedAt - a.publishedAt);
           setArticles(fetched);
         }
       } catch (err) {
-        console.error("Home Firestore query failed, using offline mock database", err);
+        console.error("Home Firestore query failed, using mock data", err);
       }
     }
     fetchHomeArticles();
@@ -146,8 +94,7 @@ function HomeContent() {
         <div
           className="pointer-events-none absolute inset-0 z-[5] opacity-0 group-hover:opacity-100 transition-opacity duration-500"
           style={{
-            background:
-              'radial-gradient(400px circle at var(--mx) var(--my), rgba(0,255,194,0.12), transparent 70%)',
+            background: 'radial-gradient(400px circle at var(--mx) var(--my), rgba(0,255,194,0.12), transparent 70%)',
           }}
         />
 
@@ -162,8 +109,7 @@ function HomeContent() {
           <h1
             className="text-4xl sm:text-7xl md:text-8xl font-black tracking-tighter leading-[0.95] select-none transition-all duration-300 pointer-events-auto cursor-default"
             style={{
-              backgroundImage:
-                'radial-gradient(550px circle at var(--mx) var(--my), #00FFC2 0%, #ffffff 45%, #ffffff 100%)',
+              backgroundImage: 'radial-gradient(550px circle at var(--mx) var(--my), #00FFC2 0%, #ffffff 45%, #ffffff 100%)',
               WebkitBackgroundClip: 'text',
               backgroundClip: 'text',
               color: 'transparent',
@@ -233,7 +179,7 @@ function HomeContent() {
                 key={article.id || i}
                 category={article.category}
                 title={article.title}
-                excerpt={article.summary || article.excerpt}
+                excerpt={article.excerpt}
                 date={article.date}
                 url={article.url}
               />

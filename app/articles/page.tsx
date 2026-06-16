@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase';
 import { mockArticles, MockArticle } from '@/lib/mock-articles';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { useSearchParams } from 'next/navigation';
+import { normalizeTopic } from '@/lib/normalize-topic';
 
 const getPosition = (index: number, isMobile: boolean) => {
   // Stagger nodes in a zig-zag depth pattern
@@ -180,7 +181,7 @@ function ArticlesContent() {
               summary: data.summary || '',
               topics: data.topics || ['General'],
               url: data.url || '',
-              category: data.topics?.[0] || data.category || 'General',
+              category: normalizeTopic(data.topics || [], data.sourceName || data.category || ''),
               date: rawDate,
               publishedAt: data.publishedAt || (data.date ? new Date(data.date).getTime() : Date.now())
             };

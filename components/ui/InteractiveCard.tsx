@@ -8,35 +8,27 @@ interface InteractiveCardProps {
   title: string;
   excerpt: string;
   date: string;
+  url?: string;
 }
 
-export function InteractiveCard({ category, title, excerpt, date }: InteractiveCardProps) {
+export function InteractiveCard({ category, title, excerpt, date, url }: InteractiveCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Skip tilt calculations on touch-only devices to avoid scroll interference
-    if (typeof window !== 'undefined' && !window.matchMedia('(hover: hover)').matches) {
-      return;
-    }
-
+    if (typeof window !== 'undefined' && !window.matchMedia('(hover: hover)').matches) return;
     const card = cardRef.current;
     if (!card) return;
-
     const rect = card.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-
     setCoords({ x, y });
     setIsHovered(true);
-
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
-
     const rotateX = -((y - centerY) / centerY) * 6;
     const rotateY = ((x - centerX) / centerX) * 6;
-
     card.style.setProperty('--rx', `${rotateX}deg`);
     card.style.setProperty('--ry', `${rotateY}deg`);
   };
@@ -49,11 +41,16 @@ export function InteractiveCard({ category, title, excerpt, date }: InteractiveC
     card.style.setProperty('--ry', '0deg');
   };
 
+  const handleClick = () => {
+    if (url) window.open(url, '_blank', 'noreferrer');
+  };
+
   return (
     <div
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
       className="group relative border border-white/10 bg-[#080808]/75 rounded-2xl overflow-hidden hover:border-[#00FFC2]/30 transition-all duration-300 cursor-pointer backdrop-blur-md"
       style={{
         transform: isHovered
@@ -62,7 +59,7 @@ export function InteractiveCard({ category, title, excerpt, date }: InteractiveC
         transition: isHovered ? 'none' : 'all 0.5s ease',
       }}
     >
-      {/* Dynamic Cursor Spotlight Glow (only visible when hovered) */}
+      {/* Dynamic Cursor Spotlight Glow */}
       <div
         className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10"
         style={{
@@ -99,7 +96,7 @@ export function InteractiveCard({ category, title, excerpt, date }: InteractiveC
         <h3 className="text-lg font-bold leading-snug mb-2 group-hover:text-[#00FFC2] transition-colors duration-200">
           {title}
         </h3>
-        <p className="text-sm text-white/40 leading-relaxed">
+        <p className="text-sm text-white/40 leading-relaxed line-clamp-3">
           {excerpt}
         </p>
         <div className="mt-4 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-white/30 group-hover:text-[#00FFC2] group-hover:gap-2 transition-all duration-200">
