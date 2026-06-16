@@ -17,6 +17,54 @@ const categories = [
   { name: 'Cyber SOC', icon: Shield },
 ];
 
+// Maps Gemini-extracted topics + feed topics to our 4 nav categories
+function normalizeTopic(topics: string[], feedTopic: string): string {
+  const all = [...(topics || []), feedTopic]
+    .filter(Boolean)
+    .map(t => t.toLowerCase());
+
+  if (all.some(t =>
+    t.includes('kubernetes') || t === 'k8s' || t.includes('k8s') ||
+    t.includes('kubectl') || t.includes('helm') || t.includes('cncf') ||
+    t.includes('container orchestration') || t.includes('eks') ||
+    t.includes('k3s') || t.includes('aks') || t.includes('gke')
+  )) return 'K8s';
+
+  if (all.some(t =>
+    t.includes('devops') || t.includes('ci/cd') || t.includes('cicd') ||
+    t.includes('docker') || t.includes('terraform') || t.includes('gitops') ||
+    t.includes('ansible') || t.includes('jenkins') || t.includes('argocd') ||
+    t.includes('pipeline') || t.includes('infrastructure') || t.includes('sre') ||
+    t.includes('site reliability') || t.includes('deployment') ||
+    t.includes('the new stack') || t.includes('circleci') || t.includes('github actions')
+  )) return 'DevOps';
+
+  if (all.some(t =>
+    t.includes('cyber') || t.includes('security') || t.includes('soc') ||
+    t.includes('malware') || t.includes('cve') || t.includes('hacker') ||
+    t.includes('vulnerability') || t.includes('threat') || t.includes('exploit') ||
+    t.includes('ransomware') || t.includes('phishing') || t.includes('breach') ||
+    t.includes('incident') || t.includes('intrusion') || t.includes('zero-day') ||
+    t.includes('cisa') || t.includes('apt') || t.includes('pentest') ||
+    t.includes('firewall') || t.includes('siem') || t.includes('the hacker news') ||
+    t.includes('krebs') || t.includes('bleeping') || t.includes('dark reading')
+  )) return 'Cyber SOC';
+
+  if (all.some(t =>
+    t.includes('ai') || t.includes(' ml') || t.startsWith('ml') ||
+    t.includes('machine learning') || t.includes('deep learning') ||
+    t.includes('llm') || t.includes('large language') || t.includes('neural') ||
+    t.includes('gemini') || t.includes('openai') || t.includes('gpt') ||
+    t.includes('claude') || t.includes('nlp') || t.includes('generative') ||
+    t.includes('model') || t.includes('inference') || t.includes('training') ||
+    t.includes('hugging face') || t.includes('towards data science') ||
+    t.includes('data science') || t.includes('computer vision') ||
+    t.includes('transformer') || t.includes('reinforcement')
+  )) return 'AI/ML';
+
+  return feedTopic || topics?.[0] || 'General';
+}
+
 function HomeContent() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [articles, setArticles] = useState<any[]>(mockArticles);
@@ -33,15 +81,22 @@ function HomeContent() {
         if (!snapshot.empty) {
           const fetched = snapshot.docs.map(doc => {
             const data = doc.data();
-            const rawDate = data.publishedAt 
+            const rawDate = data.publishedAt
               ? new Date(data.publishedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
               : data.date || 'TBD';
+
+            const normalizedCategory = normalizeTopic(
+              data.topics || [],
+              data.category || data.sourceName || ''
+            );
+
             return {
               id: doc.id,
-              category: data.topics?.[0] || data.category || 'General',
+              category: normalizedCategory,
               title: data.title || '',
               excerpt: data.summary || data.content?.substring(0, 120) + '...' || '',
               date: rawDate,
+              url: data.url || '',
               publishedAt: data.publishedAt || (data.date ? new Date(data.date).getTime() : Date.now())
             };
           });
@@ -73,7 +128,6 @@ function HomeContent() {
     }
   };
 
-  // Filter articles based on active search parameters
   const filteredArticles = activeCategory.toLowerCase() === 'all' || activeCategory.toLowerCase() === 'network'
     ? articles
     : articles.filter(a => a.category.toLowerCase() === activeCategory.toLowerCase());
@@ -89,7 +143,6 @@ function HomeContent() {
       >
         <HeroCanvas />
 
-        {/* cursor-follow glow */}
         <div
           className="pointer-events-none absolute inset-0 z-[5] opacity-0 group-hover:opacity-100 transition-opacity duration-500"
           style={{
@@ -141,8 +194,8 @@ function HomeContent() {
                 key={name}
                 onClick={() => handleCategoryClick(name)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-200 cursor-pointer shrink-0 border ${
-                  isActive 
-                    ? 'text-[#00FFC2] border-[#00FFC2] bg-[#00FFC2]/5 scale-105' 
+                  isActive
+                    ? 'text-[#00FFC2] border-[#00FFC2] bg-[#00FFC2]/5 scale-105'
                     : 'text-white/50 border-transparent hover:text-[#00FFC2]'
                 }`}
               >
@@ -176,12 +229,13 @@ function HomeContent() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredArticles.slice(0, 6).map((article, i) => (
-              <InteractiveCard 
-                key={article.id || i} 
+              <InteractiveCard
+                key={article.id || i}
                 category={article.category}
                 title={article.title}
                 excerpt={article.summary || article.excerpt}
                 date={article.date}
+                url={article.url}
               />
             ))}
           </div>
