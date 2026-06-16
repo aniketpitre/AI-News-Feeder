@@ -124,7 +124,7 @@ function HomeContent() {
       </section>
 
       {/* CATEGORY STRIP */}
-      <section className="border-y border-white/10 bg-[#080808]/80 sticky top-[65px] z-30 backdrop-blur-md">
+      <section className="border-y border-white/10 bg-[#080808]/80 sticky top-[97px] z-30 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-start md:justify-center gap-x-8 overflow-x-auto no-scrollbar scroll-smooth whitespace-nowrap">
           {categories.map(({ name, icon: Icon }) => {
             const isActive = activeCategory.toLowerCase() === name.toLowerCase();
