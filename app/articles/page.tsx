@@ -4,44 +4,38 @@ import React, { useState, useEffect, useRef, useMemo, Suspense, useCallback } fr
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Stars, MeshDistortMaterial, Sphere, Float } from '@react-three/drei';
 import * as THREE from 'three';
-import { ExternalLink, ChevronLeft, ChevronRight, Cpu, Shield, Container, Brain, X } from 'lucide-react';
+import { ExternalLink, ChevronLeft, ChevronRight, Cpu, Shield, Container, Brain, X, Search } from 'lucide-react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { MockArticle } from '@/lib/mock-articles';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { normalizeTopic } from '@/lib/normalize-topic';
 
-const CATEGORY_CONFIG: Record<string, { color: string; secondary: string }> = {
-  'K8s':       { color: '#00FFC2', secondary: '#004d3d' },
-  'DevOps':    { color: '#4FC3F7', secondary: '#003d52' },
-  'AI/ML':     { color: '#CE93D8', secondary: '#3d0052' },
-  'Cyber SOC': { color: '#FF8A65', secondary: '#521500' },
-  'General':   { color: '#aaaaaa', secondary: '#222222' },
+const CATEGORY_CONFIG: Record<string, { color: string }> = {
+  'K8s':       { color: '#00FFC2' },
+  'DevOps':    { color: '#4FC3F7' },
+  'AI/ML':     { color: '#CE93D8' },
+  'Cyber SOC': { color: '#FF8A65' },
+  'General':   { color: '#aaaaaa' },
 };
 
-// ─── 3D Scene ────────────────────────────────────────────────────────────────
+// ─── 3D Background Scene ──────────────────────────────────────────────────────
 
 function BackgroundOrbs() {
   const orbs = useMemo(() => Array.from({ length: 6 }, (_, i) => ({
-    pos: [(Math.random() - 0.5) * 20, (Math.random() - 0.5) * 12, -8 - Math.random() * 6] as [number,number,number],
+    pos: [(Math.random() - 0.5) * 20, (Math.random() - 0.5) * 10, -8 - Math.random() * 6] as [number, number, number],
     size: 0.4 + Math.random() * 1.2,
-    color: ['#00FFC2','#4040ff','#CE93D8','#FF8A65'][i % 4],
+    color: ['#00FFC2', '#4040ff', '#CE93D8', '#FF8A65'][i % 4],
     speed: 0.3 + Math.random() * 0.4,
     distort: 0.3 + Math.random() * 0.4,
-    phase: Math.random() * Math.PI * 2,
   })), []);
-
   return (
     <>
       {orbs.map((o, i) => (
         <Float key={i} speed={o.speed} floatIntensity={0.5} rotationIntensity={0.3}>
           <Sphere args={[o.size, 32, 32]} position={o.pos}>
-            <MeshDistortMaterial
-              color={o.color} distort={o.distort} speed={0.5}
-              roughness={0.1} metalness={0.7}
-              emissive={o.color} emissiveIntensity={0.04}
-              transparent opacity={0.12} depthWrite={false}
-            />
+            <MeshDistortMaterial color={o.color} distort={o.distort} speed={0.5} roughness={0.1} metalness={0.7}
+              emissive={o.color} emissiveIntensity={0.04} transparent opacity={0.1} depthWrite={false} />
           </Sphere>
         </Float>
       ))}
@@ -49,7 +43,7 @@ function BackgroundOrbs() {
   );
 }
 
-function ActiveOrb({ color, intensity }: { color: string; intensity: number }) {
+function ActiveOrb({ color }: { color: string }) {
   const mesh = useRef<THREE.Mesh>(null!);
   const light = useRef<THREE.PointLight>(null!);
   const targetColor = useMemo(() => new THREE.Color(color), [color]);
@@ -57,61 +51,22 @@ function ActiveOrb({ color, intensity }: { color: string; intensity: number }) {
 
   useFrame((s, delta) => {
     if (!mesh.current) return;
-    mesh.current.rotation.y += delta * 0.15;
-    mesh.current.rotation.x += delta * 0.07;
-    // Color lerp on category change
-    currentColor.current.lerp(targetColor, 0.05);
+    mesh.current.rotation.y += delta * 0.1;
+    mesh.current.rotation.x += delta * 0.04;
+    currentColor.current.lerp(targetColor, 0.04);
     (mesh.current.material as any).color.copy(currentColor.current);
     (mesh.current.material as any).emissive.copy(currentColor.current);
     if (light.current) light.current.color.copy(currentColor.current);
   });
 
   return (
-    <Float speed={1.2} floatIntensity={0.4} rotationIntensity={0.2}>
-      <Sphere ref={mesh} args={[1.6, 128, 128]} position={[0, 0, 0]}>
-        <MeshDistortMaterial
-          color={color} distort={0.35} speed={1.2}
-          roughness={0.08} metalness={0.9}
-          emissive={color} emissiveIntensity={0.18}
-        />
+    <Float speed={1} floatIntensity={0.3} rotationIntensity={0.15}>
+      <Sphere ref={mesh} args={[1.5, 128, 128]} position={[0, 0.6, -1.5]}>
+        <MeshDistortMaterial color={color} distort={0.32} speed={1} roughness={0.08} metalness={0.9}
+          emissive={color} emissiveIntensity={0.15} />
       </Sphere>
-      <pointLight ref={light} color={color} intensity={3 * intensity} distance={12} position={[0,0,0]} />
+      <pointLight ref={light} color={color} intensity={2.5} distance={12} position={[0, 0.6, -1.5]} />
     </Float>
-  );
-}
-
-function SatelliteDots({ color, count }: { color: string; count: number }) {
-  const group = useRef<THREE.Group>(null!);
-  useFrame((s, delta) => {
-    if (group.current) {
-      group.current.rotation.y += delta * 0.25;
-      group.current.rotation.x += delta * 0.08;
-    }
-  });
-
-  const dots = useMemo(() =>
-    Array.from({ length: count }, (_, i) => {
-      const angle = (i / count) * Math.PI * 2;
-      const radius = 2.4 + (i % 3) * 0.4;
-      return {
-        pos: [
-          Math.cos(angle) * radius,
-          Math.sin(i * 0.7) * 0.6,
-          Math.sin(angle) * radius,
-        ] as [number,number,number],
-        size: 0.05 + (i % 3) * 0.03,
-      };
-    }), [count]);
-
-  return (
-    <group ref={group}>
-      {dots.map((d, i) => (
-        <mesh key={i} position={d.pos}>
-          <sphereGeometry args={[d.size, 8, 8]} />
-          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} />
-        </mesh>
-      ))}
-    </group>
   );
 }
 
@@ -119,53 +74,52 @@ function RingSystem({ color }: { color: string }) {
   const ring1 = useRef<THREE.Mesh>(null!);
   const ring2 = useRef<THREE.Mesh>(null!);
   useFrame((_, d) => {
-    if (ring1.current) ring1.current.rotation.z += d * 0.3;
-    if (ring2.current) ring2.current.rotation.z -= d * 0.18;
+    if (ring1.current) ring1.current.rotation.z += d * 0.2;
+    if (ring2.current) ring2.current.rotation.z -= d * 0.12;
   });
   const c = useMemo(() => new THREE.Color(color), [color]);
   return (
-    <>
+    <group position={[0, 0.6, -1.5]}>
       <mesh ref={ring1} rotation={[Math.PI / 2.5, 0, 0]}>
-        <torusGeometry args={[2.2, 0.012, 6, 120]} />
-        <meshBasicMaterial color={c} transparent opacity={0.25} />
+        <torusGeometry args={[2.1, 0.01, 6, 120]} />
+        <meshBasicMaterial color={c} transparent opacity={0.18} />
       </mesh>
       <mesh ref={ring2} rotation={[Math.PI / 3, 0.3, 0]}>
-        <torusGeometry args={[2.8, 0.006, 6, 120]} />
-        <meshBasicMaterial color={c} transparent opacity={0.12} />
+        <torusGeometry args={[2.6, 0.005, 6, 120]} />
+        <meshBasicMaterial color={c} transparent opacity={0.1} />
       </mesh>
-    </>
+    </group>
   );
 }
 
-function CameraRig({ targetZ }: { targetZ: number }) {
+function CameraRig() {
   const { camera } = useThree();
   useFrame((s) => {
-    camera.position.x += (s.pointer.x * 0.8 - camera.position.x) * 0.04;
-    camera.position.y += (s.pointer.y * 0.5 - camera.position.y) * 0.04;
-    camera.position.z += (targetZ - camera.position.z) * 0.06;
-    camera.lookAt(0, 0, 0);
+    camera.position.x += (s.pointer.x * 0.5 - camera.position.x) * 0.03;
+    camera.position.y += (s.pointer.y * 0.3 - camera.position.y) * 0.03;
+    camera.position.z += (6.5 - camera.position.z) * 0.03;
+    camera.lookAt(0, 0, -1);
   });
   return null;
 }
 
-function Scene3D({ color, panelOpen, articleCount }: { color: string; panelOpen: boolean; articleCount: number }) {
+function Scene3D({ color }: { color: string }) {
   return (
     <>
       <color attach="background" args={['#030508']} />
-      <fog attach="fog" args={['#030508', 15, 40]} />
+      <fog attach="fog" args={['#030508', 14, 38]} />
       <Stars radius={60} depth={40} count={5000} factor={2.5} saturation={0.2} fade speed={0.3} />
       <ambientLight intensity={0.15} />
-      <pointLight position={[8, 6, 4]} intensity={0.5} color="#ffffff" />
+      <pointLight position={[8, 6, 4]} intensity={0.4} color="#ffffff" />
       <BackgroundOrbs />
-      <ActiveOrb color={color} intensity={1} />
+      <ActiveOrb color={color} />
       <RingSystem color={color} />
-      <SatelliteDots color={color} count={Math.min(articleCount, 12)} />
-      <CameraRig targetZ={panelOpen ? 7 : 5.5} />
+      <CameraRig />
     </>
   );
 }
 
-// ─── Category pill ────────────────────────────────────────────────────────────
+// ─── Categories ───────────────────────────────────────────────────────────────
 const CATS = [
   { name: 'All', icon: null },
   { name: 'DevOps', icon: Container },
@@ -174,14 +128,62 @@ const CATS = [
   { name: 'Cyber SOC', icon: Shield },
 ];
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Article Card ─────────────────────────────────────────────────────────────
+function ArticleCard({ article, color, isFocused, onClick, style }: {
+  article: MockArticle; color: string; isFocused: boolean; onClick: () => void; style?: React.CSSProperties;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="shrink-0 text-left rounded-2xl overflow-hidden transition-all duration-300 ease-out"
+      style={{
+        width: 280,
+        background: 'rgba(5,7,14,0.82)',
+        border: `1px solid ${isFocused ? color : 'rgba(255,255,255,0.08)'}`,
+        boxShadow: isFocused
+          ? `0 0 36px ${color}35, 0 16px 40px rgba(0,0,0,0.6)`
+          : hovered ? `0 0 20px ${color}20, 0 8px 24px rgba(0,0,0,0.5)` : '0 4px 16px rgba(0,0,0,0.4)',
+        backdropFilter: 'blur(18px)',
+        transform: isFocused ? 'translateY(-8px) scale(1.02)' : hovered ? 'translateY(-4px)' : 'translateY(0)',
+        ...style,
+      }}
+    >
+      <div className="h-0.5 w-full" style={{ background: `linear-gradient(to right, ${color}, transparent)`, opacity: isFocused || hovered ? 1 : 0.3 }} />
+      <div className="p-5">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border"
+            style={{ color, borderColor: `${color}40`, background: `${color}10` }}>
+            {article.category}
+          </span>
+          <span className="text-[8px] font-mono text-white/25">{article.date}</span>
+        </div>
+        <h3 className="text-[13px] font-black leading-snug mb-2 line-clamp-2"
+          style={{ color: isFocused ? color : 'rgba(255,255,255,0.9)' }}>
+          {article.title}
+        </h3>
+        <p className="text-[10.5px] text-white/35 leading-relaxed line-clamp-2">
+          {article.summary}
+        </p>
+        <div className="mt-3 flex items-center gap-1 text-[8px] font-black uppercase tracking-widest"
+          style={{ color: isFocused || hovered ? color : 'rgba(255,255,255,0.25)' }}>
+          Read More →
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 function ArticlesContent() {
   const [articles, setArticles] = useState<MockArticle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [index, setIndex] = useState(0);
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [animDir, setAnimDir] = useState<'left'|'right'|null>(null);
-  const [visible, setVisible] = useState(true);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const [selected, setSelected] = useState<MockArticle | null>(null);
+  const [search, setSearch] = useState('');
+  const scrollRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const cat = searchParams.get('category') || 'all';
@@ -211,289 +213,149 @@ function ArticlesContent() {
   }, []);
 
   const filtered = useMemo(() => {
-    if (cat === 'all') return articles;
-    return articles.filter(a => a.category.toLowerCase() === cat.toLowerCase());
-  }, [articles, cat]);
+    let list = articles;
+    if (cat !== 'all') list = list.filter(a => a.category.toLowerCase() === cat.toLowerCase());
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      list = list.filter(a => a.title.toLowerCase().includes(s));
+    }
+    return list;
+  }, [articles, cat, search]);
 
-  const article = filtered[index] ?? null;
-  const cfg = article ? (CATEGORY_CONFIG[article.category] ?? CATEGORY_CONFIG.General) : CATEGORY_CONFIG.General;
+  useEffect(() => { setFocusedIndex(0); setSelected(null); if (scrollRef.current) scrollRef.current.scrollLeft = 0; }, [cat, search]);
 
-  const go = useCallback((dir: 'left'|'right') => {
-    const next = dir === 'right'
-      ? Math.min(filtered.length - 1, index + 1)
-      : Math.max(0, index - 1);
-    if (next === index) return;
-    setAnimDir(dir);
-    setVisible(false);
-    setPanelOpen(false);
-    setTimeout(() => { setIndex(next); setVisible(true); setAnimDir(null); }, 280);
-  }, [index, filtered.length]);
+  const focusedArticle = filtered[focusedIndex] ?? null;
+  const activeColor = focusedArticle ? (CATEGORY_CONFIG[focusedArticle.category]?.color ?? CATEGORY_CONFIG.General.color) : '#00FFC2';
 
-  useEffect(() => { setIndex(0); setPanelOpen(false); }, [cat]);
+  const scrollByCards = useCallback((dir: 1 | -1) => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollBy({ left: dir * 300, behavior: 'smooth' });
+  }, []);
+
+  // Track focused card via scroll position
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const container = scrollRef.current;
+    const center = container.scrollLeft + container.clientWidth / 2;
+    let closestIdx = 0;
+    let closestDist = Infinity;
+    Array.from(container.children).forEach((child, i) => {
+      const el = child as HTMLElement;
+      const elCenter = el.offsetLeft + el.offsetWidth / 2;
+      const dist = Math.abs(elCenter - center);
+      if (dist < closestDist) { closestDist = dist; closestIdx = i; }
+    });
+    setFocusedIndex(closestIdx);
+  }, []);
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft')  go('left');
-      if (e.key === 'ArrowRight') go('right');
-      if (e.key === 'Escape') setPanelOpen(false);
-      if (e.key === 'Enter' && article) setPanelOpen(true);
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelected(null);
+      if (e.key === 'ArrowLeft') scrollByCards(-1);
+      if (e.key === 'ArrowRight') scrollByCards(1);
+      if (e.key === 'Enter' && focusedArticle) setSelected(focusedArticle);
     };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [go, article]);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [scrollByCards, focusedArticle]);
 
   return (
     <div className="relative w-full bg-[#030508] overflow-hidden select-none" style={{ height: 'calc(100vh - 97px)' }}>
-      {/* 3D canvas */}
-      <Canvas camera={{ position: [0, 0, 5.5], fov: 55 }} className="absolute inset-0">
+      {/* 3D backdrop */}
+      <Canvas camera={{ position: [0, 0, 6.5], fov: 55 }} className="absolute inset-0">
         <Suspense fallback={null}>
-          <Scene3D color={cfg.color} panelOpen={panelOpen} articleCount={filtered.length} />
+          <Scene3D color={activeColor} />
         </Suspense>
       </Canvas>
 
-      {/* Radial glow under orb */}
-      <div className="absolute inset-0 z-[1] pointer-events-none flex items-center justify-center">
-        <div className="w-[500px] h-[500px] rounded-full transition-all duration-1000"
-          style={{ background: `radial-gradient(circle, ${cfg.color}15 0%, transparent 70%)`, filter: 'blur(40px)' }} />
+      {/* radial glow */}
+      <div className="absolute inset-0 z-[1] pointer-events-none flex items-center justify-center" style={{ marginTop: -60 }}>
+        <div className="w-[600px] h-[600px] rounded-full transition-all duration-1000"
+          style={{ background: `radial-gradient(circle, ${activeColor}12 0%, transparent 70%)`, filter: 'blur(50px)' }} />
       </div>
 
-      {/* ── TOP HUD ── */}
+      {/* HUD top-left */}
       <div className="absolute top-5 left-6 z-20 pointer-events-none">
         <div className="flex items-center gap-2 mb-1">
-          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: cfg.color }} />
-          <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: cfg.color }}>
+          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: activeColor }} />
+          <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: activeColor }}>
             Transmission Archive
           </span>
         </div>
-        {!loading && (
-          <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">
-            Node {index + 1} / {filtered.length}
-          </div>
-        )}
+        <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">
+          {loading ? 'Syncing...' : `${filtered.length} transmissions`}
+        </div>
       </div>
 
-      {/* Category strip — top right */}
-      <div className="absolute top-5 right-6 z-20 flex items-center gap-1.5 bg-black/40 border border-white/8 rounded-full px-3 py-1.5 backdrop-blur-xl">
-        {CATS.map(({ name, icon: Icon }) => {
-          const active = name === 'All' ? cat === 'all' : cat.toLowerCase() === name.toLowerCase();
-          const color = CATEGORY_CONFIG[name]?.color || '#fff';
-          return (
-            <button key={name} onClick={() => router.push(name === 'All' ? '/articles' : `/articles?category=${name}`)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all duration-200 ${active ? 'scale-105' : 'text-white/35 hover:text-white/70'}`}
-              style={active ? { color, background: `${color}18` } : {}}>
-              {Icon && <Icon className="w-2.5 h-2.5" />}
-              {name}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── ARTICLE CARD — center floating ── */}
-      {article && (
-        <div
-          className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
-          style={{
-            paddingRight: panelOpen ? '460px' : '0',
-            transition: 'padding 0.5s cubic-bezier(0.16,1,0.3,1)',
-          }}
-        >
-          <div
-            className="pointer-events-auto w-full max-w-sm"
-            style={{
-              opacity: visible ? 1 : 0,
-              transform: `translateX(${visible ? 0 : animDir === 'right' ? -40 : 40}px)`,
-              transition: 'opacity 0.28s ease, transform 0.28s ease',
-            }}
-          >
-            {/* Main card */}
-            <div className="rounded-2xl overflow-hidden"
-              style={{
-                background: 'rgba(4,6,14,0.88)',
-                border: `1px solid ${cfg.color}35`,
-                boxShadow: `0 0 60px ${cfg.color}20, 0 20px 60px rgba(0,0,0,0.7)`,
-                backdropFilter: 'blur(24px)',
-              }}>
-              {/* Colored top bar */}
-              <div className="h-1 w-full" style={{ background: `linear-gradient(to right, ${cfg.color}, ${cfg.color}40)` }} />
-
-              <div className="p-7">
-                {/* Category + date */}
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[9px] font-black uppercase tracking-[0.18em] px-2.5 py-1 rounded-full border"
-                    style={{ color: cfg.color, borderColor: `${cfg.color}40`, background: `${cfg.color}12` }}>
-                    {article.category}
-                  </span>
-                  <span className="text-[9px] font-mono text-white/25">{article.date}</span>
-                </div>
-
-                {/* Title */}
-                <h2 className="text-xl font-black leading-snug mb-3 tracking-tight" style={{ color: 'rgba(255,255,255,0.95)' }}>
-                  {article.title}
-                </h2>
-
-                {/* Summary */}
-                <p className="text-[12px] text-white/45 leading-relaxed line-clamp-3 mb-5">
-                  {article.summary}
-                </p>
-
-                {/* Topics */}
-                <div className="flex flex-wrap gap-1.5 mb-6">
-                  {article.topics?.slice(0, 3).map((t, i) => (
-                    <span key={i} className="text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
-                      style={{ background: `${cfg.color}10`, border: `1px solid ${cfg.color}25`, color: `${cfg.color}cc` }}>
-                      {t}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setPanelOpen(true)}
-                    className="flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all hover:brightness-110 active:scale-95"
-                    style={{ background: cfg.color, color: '#000', boxShadow: `0 0 20px ${cfg.color}40` }}>
-                    Read Article
-                  </button>
-                  <a href={article.url} target="_blank" rel="noreferrer"
-                    className="flex items-center justify-center w-11 rounded-xl transition-all hover:brightness-110 border"
-                    style={{ borderColor: `${cfg.color}40`, background: `${cfg.color}10`, color: cfg.color }}>
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Pagination dots */}
-            <div className="flex items-center justify-center gap-1.5 mt-5">
-              {filtered.slice(Math.max(0, index - 4), Math.min(filtered.length, index + 5)).map((_, i) => {
-                const realIndex = Math.max(0, index - 4) + i;
-                const isActive = realIndex === index;
-                return (
-                  <button key={realIndex} onClick={() => { setVisible(false); setTimeout(() => { setIndex(realIndex); setVisible(true); }, 280); }}
-                    className="rounded-full transition-all duration-300"
-                    style={{
-                      width: isActive ? 20 : 5, height: 5,
-                      background: isActive ? cfg.color : 'rgba(255,255,255,0.2)',
-                    }} />
-                );
-              })}
-            </div>
-          </div>
+      {/* Search + categories — top right */}
+      <div className="absolute top-5 right-6 z-20 flex items-center gap-2">
+        <div className="flex items-center gap-1.5 bg-black/40 border border-white/8 rounded-full px-2.5 py-1.5 backdrop-blur-xl">
+          <Search className="w-3 h-3 text-white/30 shrink-0 ml-1" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
+            className="bg-transparent text-[10px] text-white placeholder-white/25 outline-none w-20 font-mono" />
         </div>
-      )}
-
-      {/* ── NAV ARROWS ── */}
-      <button onClick={() => go('left')} disabled={index === 0}
-        className="absolute left-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-15 hover:scale-110 active:scale-95"
-        style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${cfg.color}30`, backdropFilter: 'blur(12px)', color: cfg.color }}>
-        <ChevronLeft className="w-5 h-5" />
-      </button>
-      <button onClick={() => go('right')} disabled={index >= filtered.length - 1}
-        className="absolute right-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-15 hover:scale-110 active:scale-95"
-        style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${cfg.color}30`, backdropFilter: 'blur(12px)', color: cfg.color, right: panelOpen ? '465px' : '20px', transition: 'right 0.5s cubic-bezier(0.16,1,0.3,1)' }}>
-        <ChevronRight className="w-5 h-5" />
-      </button>
-
-      {/* Keyboard hint */}
-      {!panelOpen && article && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-          <div className="flex items-center gap-3 text-[9px] font-mono text-white/20 uppercase tracking-widest">
-            <span>← → Navigate</span>
-            <span className="w-1 h-1 rounded-full bg-white/20" />
-            <span>Enter to open</span>
-            <span className="w-1 h-1 rounded-full bg-white/20" />
-            <span>{filtered.length} transmissions</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── DETAIL PANEL ── */}
-      <div
-        className="absolute top-0 right-0 bottom-0 z-30 w-full sm:w-[450px] flex flex-col"
-        style={{
-          transform: panelOpen ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 0.5s cubic-bezier(0.16,1,0.3,1)',
-          background: 'rgba(3,5,8,0.97)',
-          borderLeft: `1px solid ${cfg.color}25`,
-          backdropFilter: 'blur(32px)',
-        }}>
-        {article && (
-          <>
-            {/* Panel top accent */}
-            <div className="h-0.5 w-full shrink-0" style={{ background: `linear-gradient(to right, ${cfg.color}, transparent)` }} />
-
-            <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: cfg.color }}>
-                {article.category}
-              </span>
-              <span className="text-[9px] font-mono text-white/25">{article.date}</span>
-              <button onClick={() => setPanelOpen(false)} className="text-white/30 hover:text-white transition-colors bg-white/5 border border-white/10 p-1.5 rounded-full">
-                <X className="w-4 h-4" />
+        <div className="flex items-center gap-1 bg-black/40 border border-white/8 rounded-full px-2.5 py-1.5 backdrop-blur-xl">
+          {CATS.map(({ name, icon: Icon }) => {
+            const active = name === 'All' ? cat === 'all' : cat.toLowerCase() === name.toLowerCase();
+            const color = CATEGORY_CONFIG[name]?.color || '#fff';
+            return (
+              <button key={name} onClick={() => router.push(name === 'All' ? '/articles' : `/articles?category=${name}`)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all duration-200 ${active ? 'scale-105' : 'text-white/35 hover:text-white/70'}`}
+                style={active ? { color, background: `${color}18` } : {}}>
+                {Icon && <Icon className="w-2.5 h-2.5" />}
+                {name}
               </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-6 no-scrollbar">
-              <h2 className="text-xl font-black leading-snug mb-6 text-white">
-                {article.title}
-              </h2>
-
-              {/* Summary block */}
-              <div className="rounded-xl p-5 mb-5 relative overflow-hidden"
-                style={{ background: `${cfg.color}08`, border: `1px solid ${cfg.color}20` }}>
-                <div className="absolute top-0 left-0 w-0.5 h-full" style={{ background: cfg.color }} />
-                <p className="text-[13px] text-white/65 leading-relaxed pl-3 italic">
-                  {article.summary}
-                </p>
-              </div>
-
-              {/* Full content if available */}
-              {article.content && article.content !== article.summary && (
-                <p className="text-[12px] text-white/35 leading-relaxed mb-5 line-clamp-6">
-                  {article.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()}
-                </p>
-              )}
-
-              {/* Topics */}
-              {article.topics?.length > 0 && (
-                <div className="mb-6">
-                  <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest block mb-2">Signal Tags</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {article.topics.map((t, i) => (
-                      <span key={i} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider"
-                        style={{ background: `${cfg.color}10`, border: `1px solid ${cfg.color}20`, color: `${cfg.color}bb` }}>
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Nav inside panel */}
-              <div className="flex items-center justify-between pt-4" style={{ borderTop: `1px solid rgba(255,255,255,0.06)` }}>
-                <button onClick={() => go('left')} disabled={index === 0}
-                  className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-20 hover:scale-105"
-                  style={{ color: cfg.color }}>
-                  <ChevronLeft className="w-3.5 h-3.5" /> Prev
-                </button>
-                <span className="text-[9px] font-mono text-white/20">{index + 1} / {filtered.length}</span>
-                <button onClick={() => go('right')} disabled={index >= filtered.length - 1}
-                  className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-20 hover:scale-105"
-                  style={{ color: cfg.color }}>
-                  Next <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="px-6 py-5 shrink-0" style={{ borderTop: `1px solid rgba(255,255,255,0.06)` }}>
-              <a href={article.url} target="_blank" rel="noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 font-black uppercase tracking-widest py-3.5 rounded-xl text-[11px] text-black transition-all hover:brightness-110 active:scale-95"
-                style={{ background: cfg.color, boxShadow: `0 0 32px ${cfg.color}40` }}>
-                Access Full Transmission <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </>
-        )}
+            );
+          })}
+        </div>
       </div>
+
+      {/* ── Horizontal scrolling cards — bottom anchored ── */}
+      {!loading && filtered.length > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 z-10 pb-8 pt-24"
+          style={{ background: 'linear-gradient(to top, rgba(3,5,8,0.85) 20%, transparent 100%)' }}>
+          {/* Left/Right arrows */}
+          <button onClick={() => scrollByCards(-1)}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+            style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${activeColor}30`, backdropFilter: 'blur(10px)', color: activeColor }}>
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button onClick={() => scrollByCards(1)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+            style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${activeColor}30`, backdropFilter: 'blur(10px)', color: activeColor }}>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          {/* Scrollable row */}
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="flex gap-4 overflow-x-auto no-scrollbar px-[calc(50%-140px)] snap-x snap-mandatory pb-2"
+            style={{ scrollBehavior: 'smooth' }}
+          >
+            {filtered.map((article, i) => {
+              const color = CATEGORY_CONFIG[article.category]?.color || '#fff';
+              return (
+                <div key={article.id} className="snap-center">
+                  <ArticleCard
+                    article={article}
+                    color={color}
+                    isFocused={i === focusedIndex}
+                    onClick={() => setSelected(article)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Counter + hint */}
+          <div className="flex items-center justify-center gap-3 mt-4 text-[9px] font-mono text-white/20 uppercase tracking-widest">
+            <span>{focusedIndex + 1} / {filtered.length}</span>
+            <span className="w-1 h-1 rounded-full bg-white/20" />
+            <span>← → Scroll · Enter to Open</span>
+          </div>
+        </div>
+      )}
 
       {/* Empty state */}
       {!loading && filtered.length === 0 && (
@@ -504,6 +366,89 @@ function ArticlesContent() {
           </div>
         </div>
       )}
+
+      {/* ── Detail panel ── */}
+      <div
+        className="absolute top-0 right-0 bottom-0 z-30 w-full sm:w-[450px] flex flex-col"
+        style={{
+          transform: selected ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.5s cubic-bezier(0.16,1,0.3,1)',
+          background: 'rgba(3,5,8,0.97)',
+          borderLeft: `1px solid ${activeColor}25`,
+          backdropFilter: 'blur(32px)',
+        }}>
+        {selected && (() => {
+          const color = CATEGORY_CONFIG[selected.category]?.color || '#fff';
+          const selIdx = filtered.findIndex(a => a.id === selected.id);
+          return (
+            <>
+              <div className="h-0.5 w-full shrink-0" style={{ background: `linear-gradient(to right, ${color}, transparent)` }} />
+              <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color }}>{selected.category}</span>
+                <span className="text-[9px] font-mono text-white/25">{selected.date}</span>
+                <button onClick={() => setSelected(null)} className="text-white/30 hover:text-white transition-colors bg-white/5 border border-white/10 p-1.5 rounded-full">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-6 no-scrollbar">
+                <h2 className="text-xl font-black leading-snug mb-6 text-white">{selected.title}</h2>
+
+                <div className="rounded-xl p-5 mb-5 relative overflow-hidden" style={{ background: `${color}08`, border: `1px solid ${color}20` }}>
+                  <div className="absolute top-0 left-0 w-0.5 h-full" style={{ background: color }} />
+                  <p className="text-[13px] text-white/65 leading-relaxed pl-3 italic">{selected.summary}</p>
+                </div>
+
+                {selected.content && selected.content !== selected.summary && (
+                  <p className="text-[12px] text-white/35 leading-relaxed mb-5 line-clamp-6">
+                    {selected.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()}
+                  </p>
+                )}
+
+                {selected.topics?.length > 0 && (
+                  <div className="mb-6">
+                    <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest block mb-2">Signal Tags</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selected.topics.map((t, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider"
+                          style={{ background: `${color}10`, border: `1px solid ${color}20`, color: `${color}bb` }}>
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <button
+                    onClick={() => { const prev = filtered[Math.max(0, selIdx - 1)]; if (prev) setSelected(prev); }}
+                    disabled={selIdx <= 0}
+                    className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-20 hover:scale-105"
+                    style={{ color }}>
+                    <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                  </button>
+                  <span className="text-[9px] font-mono text-white/20">{selIdx + 1} / {filtered.length}</span>
+                  <button
+                    onClick={() => { const next = filtered[Math.min(filtered.length - 1, selIdx + 1)]; if (next) setSelected(next); }}
+                    disabled={selIdx >= filtered.length - 1}
+                    className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-20 hover:scale-105"
+                    style={{ color }}>
+                    Next <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="px-6 py-5 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <a href={selected.url} target="_blank" rel="noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 font-black uppercase tracking-widest py-3.5 rounded-xl text-[11px] text-black transition-all hover:brightness-110 active:scale-95"
+                  style={{ background: color, boxShadow: `0 0 32px ${color}40` }}>
+                  Access Full Transmission <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </>
+          );
+        })()}
+      </div>
     </div>
   );
 }
