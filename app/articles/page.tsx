@@ -43,16 +43,75 @@ function BackgroundOrbs() {
   );
 }
 
-function ActiveOrb({ color }: { color: string }) {
+// Moons that orbit AROUND the drifting orb on visible elliptical tracks
+function OrbitingMoons({ color, orbPos }: { color: string; orbPos: React.MutableRefObject<THREE.Vector3> }) {
+  const moons = useMemo(() => [
+    { radius: 2.1, tilt: Math.PI / 2.5, tiltZ: 0,    speed: 0.5,  size: 0.08, offset: 0 },
+    { radius: 2.1, tilt: Math.PI / 2.5, tiltZ: 0,    speed: 0.5,  size: 0.05, offset: Math.PI },
+    { radius: 2.6, tilt: Math.PI / 3,   tiltZ: 0.3,  speed: -0.32, size: 0.1,  offset: Math.PI / 2 },
+  ], []);
+
+  return (
+    <>
+      {moons.map((m, i) => (
+        <Moon key={i} {...m} color={color} orbPos={orbPos} />
+      ))}
+    </>
+  );
+}
+
+function Moon({ radius, tilt, tiltZ, speed, size, offset, color, orbPos }: {
+  radius: number; tilt: number; tiltZ: number; speed: number; size: number; offset: number; color: string;
+  orbPos: React.MutableRefObject<THREE.Vector3>;
+}) {
+  const ref = useRef<THREE.Mesh>(null!);
+  const trail = useRef<THREE.Mesh>(null!);
+  useFrame((s) => {
+    if (!ref.current) return;
+    const t = s.clock.getElapsedTime() * speed + offset;
+    const x = Math.cos(t) * radius;
+    const z0 = Math.sin(t) * radius;
+    const y1 = z0 * Math.sin(tilt);
+    const z1 = z0 * Math.cos(tilt);
+    const x2 = x * Math.cos(tiltZ) - y1 * Math.sin(tiltZ);
+    const y2 = x * Math.sin(tiltZ) + y1 * Math.cos(tiltZ);
+    ref.current.position.set(
+      orbPos.current.x + x2,
+      orbPos.current.y + y2,
+      orbPos.current.z + z1
+    );
+  });
+  return (
+    <mesh ref={ref}>
+      <sphereGeometry args={[size, 16, 16]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1} roughness={0.2} metalness={0.6} />
+      <pointLight color={color} intensity={0.6} distance={1.8} />
+    </mesh>
+  );
+}
+
+function ActiveOrb({ color, orbPos }: { color: string; orbPos: React.MutableRefObject<THREE.Vector3> }) {
   const mesh = useRef<THREE.Mesh>(null!);
+  const group = useRef<THREE.Group>(null!);
   const light = useRef<THREE.PointLight>(null!);
   const targetColor = useMemo(() => new THREE.Color(color), [color]);
   const currentColor = useRef(new THREE.Color(color));
 
   useFrame((s, delta) => {
-    if (!mesh.current) return;
-    mesh.current.rotation.y += delta * 0.1;
-    mesh.current.rotation.x += delta * 0.04;
+    if (!mesh.current || !group.current) return;
+    const t = s.clock.getElapsedTime();
+
+    // Visible orbit path — drifts in a wide circular/figure-8 motion
+    const px = Math.sin(t * 0.18) * 1.8;
+    const py = 0.6 + Math.sin(t * 0.13) * 0.7;
+    const pz = -1.5 + Math.cos(t * 0.18) * 1.2;
+    group.current.position.set(px, py, pz);
+    orbPos.current.set(px, py, pz);
+
+    // Faster self-rotation, clearly visible
+    mesh.current.rotation.y += delta * 0.4;
+    mesh.current.rotation.x += delta * 0.18;
+
     currentColor.current.lerp(targetColor, 0.04);
     (mesh.current.material as any).color.copy(currentColor.current);
     (mesh.current.material as any).emissive.copy(currentColor.current);
@@ -60,33 +119,47 @@ function ActiveOrb({ color }: { color: string }) {
   });
 
   return (
-    <Float speed={1} floatIntensity={0.3} rotationIntensity={0.15}>
-      <Sphere ref={mesh} args={[1.5, 128, 128]} position={[0, 0.6, -1.5]}>
-        <MeshDistortMaterial color={color} distort={0.32} speed={1} roughness={0.08} metalness={0.9}
-          emissive={color} emissiveIntensity={0.15} />
-      </Sphere>
-      <pointLight ref={light} color={color} intensity={2.5} distance={12} position={[0, 0.6, -1.5]} />
-    </Float>
+    <group ref={group}>
+      <Float speed={2} floatIntensity={1.2} rotationIntensity={0.4}>
+        <Sphere ref={mesh} args={[1.5, 128, 128]}>
+          <MeshDistortMaterial color={color} distort={0.38} speed={1.8} roughness={0.08} metalness={0.9}
+            emissive={color} emissiveIntensity={0.15} />
+        </Sphere>
+        <pointLight ref={light} color={color} intensity={2.5} distance={12} />
+      </Float>
+    </group>
   );
 }
 
 function RingSystem({ color }: { color: string }) {
+  const group = useRef<THREE.Group>(null!);
   const ring1 = useRef<THREE.Mesh>(null!);
   const ring2 = useRef<THREE.Mesh>(null!);
-  useFrame((_, d) => {
-    if (ring1.current) ring1.current.rotation.z += d * 0.2;
-    if (ring2.current) ring2.current.rotation.z -= d * 0.12;
+  const ring3 = useRef<THREE.Mesh>(null!);
+  useFrame((s, d) => {
+    if (!group.current) return;
+    const t = s.clock.getElapsedTime();
+    group.current.position.x = Math.sin(t * 0.18) * 1.8;
+    group.current.position.y = 0.6 + Math.sin(t * 0.13) * 0.7;
+    group.current.position.z = -1.5 + Math.cos(t * 0.18) * 1.2;
+    if (ring1.current) ring1.current.rotation.z += d * 0.25;
+    if (ring2.current) ring2.current.rotation.z -= d * 0.15;
+    if (ring3.current) ring3.current.rotation.z += d * 0.1;
   });
   const c = useMemo(() => new THREE.Color(color), [color]);
   return (
-    <group position={[0, 0.6, -1.5]}>
+    <group ref={group}>
       <mesh ref={ring1} rotation={[Math.PI / 2.5, 0, 0]}>
         <torusGeometry args={[2.1, 0.01, 6, 120]} />
-        <meshBasicMaterial color={c} transparent opacity={0.18} />
+        <meshBasicMaterial color={c} transparent opacity={0.22} />
       </mesh>
       <mesh ref={ring2} rotation={[Math.PI / 3, 0.3, 0]}>
         <torusGeometry args={[2.6, 0.005, 6, 120]} />
-        <meshBasicMaterial color={c} transparent opacity={0.1} />
+        <meshBasicMaterial color={c} transparent opacity={0.13} />
+      </mesh>
+      <mesh ref={ring3} rotation={[Math.PI / 2.1, -0.4, 0.2]}>
+        <torusGeometry args={[3.1, 0.004, 6, 120]} />
+        <meshBasicMaterial color={c} transparent opacity={0.08} />
       </mesh>
     </group>
   );
@@ -95,15 +168,21 @@ function RingSystem({ color }: { color: string }) {
 function CameraRig() {
   const { camera } = useThree();
   useFrame((s) => {
-    camera.position.x += (s.pointer.x * 0.5 - camera.position.x) * 0.03;
-    camera.position.y += (s.pointer.y * 0.3 - camera.position.y) * 0.03;
+    const t = s.clock.getElapsedTime() * 0.02;
+    const autoX = Math.sin(t) * 0.6;
+    const autoY = Math.cos(t * 0.6) * 0.25;
+    const tx = s.pointer.x * 0.5 + autoX;
+    const ty = s.pointer.y * 0.3 + autoY;
+    camera.position.x += (tx - camera.position.x) * 0.025;
+    camera.position.y += (ty - camera.position.y) * 0.025;
     camera.position.z += (6.5 - camera.position.z) * 0.03;
-    camera.lookAt(0, 0, -1);
+    camera.lookAt(0, 0.4, -1.5);
   });
   return null;
 }
 
 function Scene3D({ color }: { color: string }) {
+  const orbPos = useRef(new THREE.Vector3(0, 0.6, -1.5));
   return (
     <>
       <color attach="background" args={['#030508']} />
@@ -112,8 +191,9 @@ function Scene3D({ color }: { color: string }) {
       <ambientLight intensity={0.15} />
       <pointLight position={[8, 6, 4]} intensity={0.4} color="#ffffff" />
       <BackgroundOrbs />
-      <ActiveOrb color={color} />
+      <ActiveOrb color={color} orbPos={orbPos} />
       <RingSystem color={color} />
+      <OrbitingMoons color={color} orbPos={orbPos} />
       <CameraRig />
     </>
   );
