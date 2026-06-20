@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-news-sync-cron
+  namespace: ai-news
+spec:
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: feed-syncer
+            image: 410386583102.dkr.ecr.ap-south-1.amazonaws.com/ai-news-feeder:latest
+            imagePullPolicy: Always
+            command:
+            - node
+            - scripts/sync-feeds.js
+            env:
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tech-sync-secrets
+                  key: GROQ_API_KEY
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gemini-secret
+                  key: GEMINI_API_KEY
+            - name: FIREBASE_SERVICE_ACCOUNT
+              valueFrom:
+                secretKeyRef:
+                  name: firebase-secret
+                  key: FIREBASE_SERVICE_ACCOUNT
+                  optional: true
+          restartPolicy: OnFailure
