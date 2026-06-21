@@ -810,7 +810,7 @@ function ArticlesContent() {
             onMouseMove={onMouseMove}
             onMouseUp={onMouseUpOrLeave}
             onMouseLeave={onMouseUpOrLeave}
-            className="flex gap-4 overflow-x-auto no-scrollbar px-[calc(50%-140px)] pb-2 cursor-grab active:cursor-grabbing"
+            className="flex gap-4 overflow-x-auto no-scrollbar px-[calc(50%-140px)] pt-10 pb-8 -mt-10 cursor-grab active:cursor-grabbing"
             style={{ 
               scrollBehavior: autoRotate ? 'auto' : 'smooth',
               scrollSnapType: isDragging ? 'none' : 'x mandatory'
