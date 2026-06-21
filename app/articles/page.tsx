@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, Suspense, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Stars, MeshDistortMaterial, Sphere, Float, Html } from '@react-three/drei';
+import { Stars, MeshDistortMaterial, MeshTransmissionMaterial, Sphere, Float, Html, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { ExternalLink, ChevronLeft, ChevronRight, Cpu, Shield, Container, Brain, X, Search } from 'lucide-react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -19,30 +19,40 @@ const CATEGORY_CONFIG: Record<string, { color: string }> = {
   'General':   { color: '#aaaaaa' },
 };
 
-// ─── Background ambient orbs (decorative, far away) ───────────────────────────
+// ─── Background ambient ice fragments (decorative, far away, glassy) ──────────
 function BackgroundOrbs() {
-  const orbs = useMemo(() => Array.from({ length: 6 }, (_, i) => ({
+  const frags = useMemo(() => Array.from({ length: 8 }, (_, i) => ({
     pos: [(Math.random() - 0.5) * 22, (Math.random() - 0.5) * 12, -10 - Math.random() * 6] as [number, number, number],
-    size: 0.4 + Math.random() * 1.2,
-    color: ['#00FFC2', '#4040ff', '#CE93D8', '#FF8A65'][i % 4],
+    size: 0.35 + Math.random() * 0.9,
     speed: 0.3 + Math.random() * 0.4,
-    distort: 0.3 + Math.random() * 0.4,
+    shape: i % 3,
   })), []);
   return (
     <>
-      {orbs.map((o, i) => (
-        <Float key={i} speed={o.speed} floatIntensity={0.5} rotationIntensity={0.3}>
-          <Sphere args={[o.size, 32, 32]} position={o.pos}>
-            <MeshDistortMaterial color={o.color} distort={o.distort} speed={0.5} roughness={0.1} metalness={0.7}
-              emissive={o.color} emissiveIntensity={0.04} transparent opacity={0.1} depthWrite={false} />
-          </Sphere>
+      {frags.map((f, i) => (
+        <Float key={i} speed={f.speed} floatIntensity={0.5} rotationIntensity={0.3}>
+          <mesh position={f.pos}>
+            {f.shape === 0 && <octahedronGeometry args={[f.size, 0]} />}
+            {f.shape === 1 && <icosahedronGeometry args={[f.size, 0]} />}
+            {f.shape === 2 && <tetrahedronGeometry args={[f.size, 0]} />}
+            <meshPhysicalMaterial
+              color="#dff7ff"
+              roughness={0.05}
+              transmission={0.92}
+              thickness={0.6}
+              ior={1.25}
+              transparent
+              opacity={0.16}
+              depthWrite={false}
+            />
+          </mesh>
         </Float>
       ))}
     </>
   );
 }
 
-// ─── Central planet ────────────────────────────────────────────────────────────
+// ─── Central crystal — glassy transmission material, igloo-consistent ────────
 function Planet({ color }: { color: string }) {
   const mesh = useRef<THREE.Mesh>(null!);
   const light = useRef<THREE.PointLight>(null!);
@@ -54,23 +64,37 @@ function Planet({ color }: { color: string }) {
     mesh.current.rotation.y += delta * 0.1;
     mesh.current.rotation.x += delta * 0.04;
     currentColor.current.lerp(targetColor, 0.04);
-    (mesh.current.material as any).color.copy(currentColor.current);
-    (mesh.current.material as any).emissive.copy(currentColor.current);
+    const mat = mesh.current.material as any;
+    if (mat?.color) mat.color.copy(currentColor.current);
     if (light.current) light.current.color.copy(currentColor.current);
   });
 
   return (
     <Float speed={0.8} floatIntensity={0.25} rotationIntensity={0.1}>
-      <Sphere ref={mesh} args={[1.1, 128, 128]}>
-        <MeshDistortMaterial color={color} distort={0.3} speed={0.8} roughness={0.08} metalness={0.9}
-          emissive={color} emissiveIntensity={0.18} />
-      </Sphere>
+      <mesh ref={mesh}>
+        <icosahedronGeometry args={[1.15, 1]} />
+        <MeshTransmissionMaterial
+          color={color}
+          thickness={1.1}
+          roughness={0.08}
+          transmission={1}
+          ior={1.3}
+          chromaticAberration={0.035}
+          anisotropy={0.25}
+          distortion={0.12}
+          distortionScale={0.35}
+          temporalDistortion={0.08}
+          clearcoat={1}
+          attenuationDistance={2.2}
+          attenuationColor="#ffffff"
+        />
+      </mesh>
       <pointLight ref={light} color={color} intensity={2.8} distance={14} />
     </Float>
   );
 }
 
-// Decorative inner rings close to the planet
+// Decorative inner rings close to the crystal — frosted glass arcs
 function RingSystem({ color }: { color: string }) {
   const ring1 = useRef<THREE.Mesh>(null!);
   const ring2 = useRef<THREE.Mesh>(null!);
@@ -82,12 +106,12 @@ function RingSystem({ color }: { color: string }) {
   return (
     <>
       <mesh ref={ring1} rotation={[Math.PI / 2.5, 0, 0]}>
-        <torusGeometry args={[1.5, 0.006, 6, 120]} />
-        <meshBasicMaterial color={c} transparent opacity={0.18} />
+        <torusGeometry args={[1.5, 0.005, 6, 120]} />
+        <meshPhysicalMaterial color={c} transmission={0.6} roughness={0.2} transparent opacity={0.22} />
       </mesh>
       <mesh ref={ring2} rotation={[Math.PI / 3, 0.3, 0]}>
-        <torusGeometry args={[1.8, 0.004, 6, 120]} />
-        <meshBasicMaterial color={c} transparent opacity={0.1} />
+        <torusGeometry args={[1.8, 0.0035, 6, 120]} />
+        <meshPhysicalMaterial color={c} transmission={0.6} roughness={0.2} transparent opacity={0.13} />
       </mesh>
     </>
   );
@@ -224,11 +248,13 @@ function OrbitScene({ articles, color, paused, selectedId, onSelect, readArticle
 
   return (
     <>
-      <color attach="background" args={['#030508']} />
-      <fog attach="fog" args={['#030508', 16, 42]} />
+      <color attach="background" args={['#020305']} />
+      <fog attach="fog" args={['#020305', 16, 42]} />
       <Stars radius={60} depth={40} count={5000} factor={2.5} saturation={0.2} fade speed={0.3} />
       <ambientLight intensity={0.15} />
+      <directionalLight position={[4, 6, 5]} intensity={0.6} color="#ffffff" />
       <pointLight position={[8, 6, 4]} intensity={0.4} color="#ffffff" />
+      <Environment preset="city" />
       <BackgroundOrbs />
       <Planet color={color} />
       <RingSystem color={color} />
@@ -770,7 +796,7 @@ function ArticlesContent() {
   };
 
   return (
-    <div className="relative w-full bg-[#030508] overflow-hidden select-none" style={{ height: 'calc(100vh - 97px)' }}>
+    <div className="relative w-full bg-[#020305] overflow-hidden select-none" style={{ height: 'calc(100vh - 97px)' }}>
       {/* 3D orbit scene — IS the article browser now */}
       <Canvas camera={{ position: [0, 0, 8.5], fov: 55 }} className="absolute inset-0">
         <Suspense fallback={null}>
