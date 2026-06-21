@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { TextScramble } from './ui/TextScramble';
 import { Menu, X } from 'lucide-react';
@@ -8,12 +8,31 @@ import { usePathname, useSearchParams } from 'next/navigation';
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const lastScrollY = useRef(0);
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const activeCategory = searchParams.get('category') || 'all';
   const isArticlesPage = pathname.startsWith('/articles');
   const basePath = isArticlesPage ? '/articles' : '/';
+
+  // Scroll-aware: transparent at top, glassmorphic on scroll, hide on scroll-down
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 80);
+      if (y > lastScrollY.current && y > 200) {
+        setHidden(true);
+      } else {
+        setHidden(false);
+      }
+      lastScrollY.current = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const toggleMenu = () => setIsOpen(!isOpen);
 
@@ -32,7 +51,15 @@ export function Navigation() {
 
   return (
     <>
-      <nav className="flex items-center justify-between px-6 md:px-8 py-4 border-b border-white/10 shrink-0 sticky top-0 z-50 bg-[#050505]/85 backdrop-blur-md">
+      <nav
+        className="flex items-center justify-between px-6 md:px-8 py-4 shrink-0 sticky top-0 z-50 transition-all duration-500"
+        style={{
+          background: scrolled ? 'rgba(5,5,5,0.85)' : 'transparent',
+          backdropFilter: scrolled ? 'blur(16px)' : 'none',
+          borderBottom: scrolled ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
+          transform: hidden ? 'translateY(-100%)' : 'translateY(0)',
+        }}
+      >
         <div className="flex items-center gap-8">
           <Link
             href="/"
@@ -44,7 +71,7 @@ export function Navigation() {
           </Link>
           
           {/* Desktop Links */}
-          <div className="hidden md:flex gap-6 text-sm font-medium text-white/60 uppercase tracking-widest">
+          <div className="hidden md:flex gap-6 text-[10px] font-mono font-medium text-white/60 uppercase tracking-[0.18em]">
             <Link href={`${basePath}?category=all`} className={getLinkClass('all')}>
               <TextScramble text="Network" trigger="hover" />
             </Link>
@@ -70,7 +97,7 @@ export function Navigation() {
           {/* Status Badge */}
           <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full">
             <span className="w-1.5 h-1.5 md:w-2 md:h-2 bg-[#00FFC2] rounded-full animate-pulse"></span>
-            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-tighter text-white/80">
+            <span className="text-[9px] md:text-[10px] font-mono font-bold uppercase tracking-tighter text-white/80">
               <span className="hidden sm:inline">AI Aggregator: </span>Active
             </span>
           </div>

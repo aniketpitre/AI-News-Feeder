@@ -17,6 +17,8 @@ const mono = IBM_Plex_Mono({
   variable: '--font-mono',
 });
 
+import { ScrollProgress } from '@/components/ScrollProgress';
+
 export const metadata: Metadata = {
   title: 'TECH_SYNC.',
   description: 'AI-driven technology news aggregation portal.',
@@ -27,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${mono.variable} min-h-screen bg-[#050505] text-white flex flex-col font-sans`} suppressHydrationWarning>
         <SmoothScroll />
+        <ScrollProgress />
         {/* Top Ticker */}
         <Suspense fallback={<div className="h-8 bg-[#00FFC2]" />}>
           <TickerBar />
