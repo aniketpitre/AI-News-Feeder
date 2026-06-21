@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { ExternalLink, ChevronLeft, ChevronRight, Cpu, Shield, Container, Brain, X, Search } from 'lucide-react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { MockArticle } from '@/lib/mock-articles';
+import { MockArticle, mockArticles } from '@/lib/mock-articles';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { normalizeTopic } from '@/lib/normalize-topic';
 
@@ -429,8 +429,14 @@ function ArticlesContent() {
           });
           data.sort((a: any, b: any) => b.publishedAt - a.publishedAt);
           setArticles(data);
+        } else {
+          console.warn("No articles found in Firestore 'articles' collection, falling back to mockArticles.");
+          setArticles(mockArticles);
         }
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error("Failed to load articles from Firestore, using mockArticles fallback:", e);
+        setArticles(mockArticles);
+      }
       finally { setLoading(false); }
     }
     load();
