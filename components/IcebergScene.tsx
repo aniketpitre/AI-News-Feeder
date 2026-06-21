@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useRef, useMemo } from 'react';
+import React, { Suspense, useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Stars, Environment, MeshTransmissionMaterial } from '@react-three/drei';
 import * as THREE from 'three';
@@ -58,6 +58,9 @@ function Shard({ scrollProgressRef }: { scrollProgressRef: React.MutableRefObjec
   const group = useRef<THREE.Group>(null!);
   const mesh = useRef<THREE.Mesh>(null!);
   const innerGlow = useRef<THREE.PointLight>(null!);
+  const auroraRef = useRef<THREE.Mesh>(null!);
+  const hoverIntensity = useRef(0);
+  const [hovered, setHovered] = useState(false);
 
   const geometries = useMemo(
     () => WAYPOINTS.map((w, i) => buildCrystalGeometry(w.shape, i * 17 + 5)),
@@ -89,7 +92,22 @@ function Shard({ scrollProgressRef }: { scrollProgressRef: React.MutableRefObjec
       const mat = mesh.current.material as any;
       if (mat?.color) mat.color.copy(currentColor.current);
     }
-    if (innerGlow.current) innerGlow.current.color.copy(currentColor.current);
+
+    // ── Hover aurora halo — soft pulsing glow ring that blooms on hover ──
+    hoverIntensity.current += ((hovered ? 1 : 0) - hoverIntensity.current) * 0.08;
+    const pulse = 0.85 + Math.sin(state.clock.getElapsedTime() * 2.2) * 0.15;
+    if (innerGlow.current) {
+      innerGlow.current.color.copy(currentColor.current);
+      innerGlow.current.intensity = 2.2 + hoverIntensity.current * 3.5 * pulse;
+    }
+    if (auroraRef.current) {
+      const mat = auroraRef.current.material as any;
+      mat.color.copy(currentColor.current);
+      mat.opacity = hoverIntensity.current * 0.35 * pulse;
+      const scale = 1.9 + hoverIntensity.current * 0.5 + Math.sin(state.clock.getElapsedTime() * 1.5) * 0.06;
+      auroraRef.current.scale.setScalar(scale);
+      auroraRef.current.lookAt(state.camera.position);
+    }
 
     // ── Position descent: shard drifts down + rotates as you scroll, igloo-style ──
     if (group.current) {
@@ -103,13 +121,30 @@ function Shard({ scrollProgressRef }: { scrollProgressRef: React.MutableRefObjec
 
     // gentle ambient self-rotation on the mesh too (separate axis, igloo "ice glints" feel)
     if (mesh.current) {
-      mesh.current.rotation.y += delta * 0.08;
+      mesh.current.rotation.y += delta * 0.08 + hoverIntensity.current * delta * 0.3;
     }
   });
 
   return (
     <group ref={group}>
-      <mesh ref={mesh} geometry={geometries[0]}>
+      {/* Aurora halo sprite — billboard plane behind the shard, additive glow */}
+      <mesh ref={auroraRef} position={[0, 0, -0.3]}>
+        <circleGeometry args={[1, 48]} />
+        <meshBasicMaterial
+          color={WAYPOINTS[0].color}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+
+      <mesh
+        ref={mesh}
+        geometry={geometries[0]}
+        onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
+        onPointerOut={(e) => { e.stopPropagation(); setHovered(false); }}
+      >
         <MeshTransmissionMaterial
           color={WAYPOINTS[0].color}
           thickness={1.2}

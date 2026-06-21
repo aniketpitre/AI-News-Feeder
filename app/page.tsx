@@ -8,6 +8,9 @@ import { ArticlePanel, ArticlePanelData } from '@/components/ui/ArticlePanel';
 import { RevealOnScroll } from '@/components/ui/RevealOnScroll';
 import { Preloader } from '@/components/Preloader';
 import { WAYPOINTS } from '@/components/IcebergScene';
+import { WaypointDrawer } from '@/components/WaypointDrawer';
+import { WaypointChime } from '@/components/WaypointChime';
+import { useWaypointSnap } from '@/hooks/use-waypoint-snap';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { mockArticles } from '@/lib/mock-articles';
@@ -48,7 +51,7 @@ function WaypointSection({
 
   if (isHero) {
     return (
-      <section className="relative w-full h-[100vh] min-h-[640px] flex flex-col items-center justify-center px-6 text-center pointer-events-none">
+      <section data-waypoint-section className="relative w-full h-[100vh] min-h-[640px] flex flex-col items-center justify-center px-6 text-center pointer-events-none">
         <RevealOnScroll delay={200}>
           <span className="mb-4 inline-flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest text-[#00FFC2] backdrop-blur-sm">
             <span className="w-1.5 h-1.5 bg-[#00FFC2] rounded-full animate-pulse" />
@@ -77,7 +80,7 @@ function WaypointSection({
 
   if (isFooter) {
     return (
-      <footer className="relative w-full min-h-[100vh] flex flex-col items-center justify-center px-6 text-center">
+      <footer data-waypoint-section className="relative w-full min-h-[100vh] flex flex-col items-center justify-center px-6 text-center">
         <RevealOnScroll>
           <h2 className="font-mono text-4xl sm:text-6xl md:text-7xl font-black tracking-tighter leading-none text-white">
             STAY_SYNCED<span className="text-[#00FFC2]">.</span>
@@ -119,7 +122,7 @@ function WaypointSection({
 
   // Category waypoint — crystal occupies center stage, top 3 articles reveal beside it
   return (
-    <section className="relative w-full min-h-[100vh] flex flex-col items-center justify-center px-6 py-24">
+    <section data-waypoint-section className="relative w-full min-h-[100vh] flex flex-col items-center justify-center px-6 py-24">
       <RevealOnScroll className="text-center mb-2" direction="up">
         <span
           className="text-[10px] font-mono font-black uppercase tracking-[0.3em]"
@@ -238,6 +241,9 @@ function HomeContent() {
   const articlesByCategory = (catKey: string) =>
     articles.filter(a => a.category.toLowerCase() === catKey.toLowerCase());
 
+  // igloo-style eased scroll-to-waypoint after the user pauses scrolling
+  useWaypointSnap({ sectionCount: WAYPOINTS.length, enabled: true });
+
   return (
     <div className="w-full relative">
       <Preloader />
@@ -253,6 +259,12 @@ function HomeContent() {
 
       {/* Bottom fade so content stays legible over the 3D scene */}
       <div className="fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#020305] to-transparent z-[1] pointer-events-none" />
+
+      {/* Persistent breadcrumb trail — igloo-style waypoint indicator */}
+      <WaypointDrawer />
+
+      {/* Ambient chime toggle — igloo-style multisensory waypoint cues */}
+      <WaypointChime />
 
       {/* ── Scroll-driven waypoint sections ── */}
       <div className="relative z-10">
