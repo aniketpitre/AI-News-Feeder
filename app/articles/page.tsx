@@ -401,6 +401,11 @@ function ArticlesContent() {
   const autoRotateTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Mouse Drag to Scroll state
+  const isDown = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0, scrollLeft: 0 });
+
   // Flying Card Animation
   const [flyingCard, setFlyingCard] = useState<{
     article: MockArticle;
@@ -471,8 +476,17 @@ function ArticlesContent() {
 
   const scrollByCards = useCallback((dir: 1 | -1) => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollBy({ left: dir * 300, behavior: 'smooth' });
-  }, []);
+    const container = scrollRef.current;
+    let targetIdx = focusedIndex + dir;
+    if (targetIdx < 0) targetIdx = 0;
+    if (targetIdx >= container.children.length) targetIdx = container.children.length - 1;
+    
+    const child = container.children[targetIdx] as HTMLElement;
+    if (child) {
+      const targetScroll = child.offsetLeft - (container.clientWidth - child.clientWidth) / 2;
+      container.scrollTo({ left: targetScroll, behavior: 'smooth' });
+    }
+  }, [focusedIndex]);
 
   // Track focused card via scroll position
   const handleScroll = useCallback(() => {
@@ -502,7 +516,39 @@ function ArticlesContent() {
     scrollByCards(dir);
   }, [pauseAutoRotate, scrollByCards]);
 
-  // Auto-rotate carousel — slow continuous drift when idle
+  // Mouse Drag to Scroll Event Handlers
+  const onMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!scrollRef.current) return;
+    isDown.current = true;
+    dragStart.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: scrollRef.current.scrollLeft
+    };
+    pauseAutoRotate();
+  }, [pauseAutoRotate]);
+
+  const onMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDown.current || !scrollRef.current) return;
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      if (!isDragging) setIsDragging(true);
+      e.preventDefault();
+      scrollRef.current.scrollLeft = dragStart.current.scrollLeft - dx;
+    }
+  }, [isDragging]);
+
+  const onMouseUpOrLeave = useCallback(() => {
+    if (isDown.current) {
+      isDown.current = false;
+      if (isDragging) {
+        setTimeout(() => setIsDragging(false), 50);
+      }
+    }
+  }, [isDragging]);
+
+  // Auto-rotate carousel — discrete card-by-card transition when idle
   useEffect(() => {
     if (autoRotateTimer.current) clearInterval(autoRotateTimer.current);
     if (!autoRotate || !hasEntered || filtered.length <= 1 || selected || flyingCard) return;
@@ -510,16 +556,17 @@ function ArticlesContent() {
     autoRotateTimer.current = setInterval(() => {
       const container = scrollRef.current;
       if (!container) return;
-      const maxScroll = container.scrollWidth - container.clientWidth;
-      if (container.scrollLeft >= maxScroll - 5) {
-        container.scrollTo({ left: 0, behavior: 'smooth' });
-      } else {
-        container.scrollBy({ left: 1.2, behavior: 'auto' });
+      
+      const nextIndex = (focusedIndex + 1) % filtered.length;
+      const child = container.children[nextIndex] as HTMLElement;
+      if (child) {
+        const targetScroll = child.offsetLeft - (container.clientWidth - child.clientWidth) / 2;
+        container.scrollTo({ left: targetScroll, behavior: 'smooth' });
       }
-    }, 30);
+    }, 4500);
 
     return () => { if (autoRotateTimer.current) clearInterval(autoRotateTimer.current); };
-  }, [autoRotate, hasEntered, filtered.length, selected, flyingCard]);
+  }, [autoRotate, hasEntered, filtered.length, selected, flyingCard, focusedIndex]);
 
   // Resume auto-rotate after closing the article panel
   useEffect(() => {
@@ -654,8 +701,15 @@ function ArticlesContent() {
             onScroll={handleScroll}
             onWheel={pauseAutoRotate}
             onTouchStart={pauseAutoRotate}
-            className="flex gap-4 overflow-x-auto no-scrollbar px-[calc(50%-140px)] snap-x snap-mandatory pb-2"
-            style={{ scrollBehavior: autoRotate ? 'auto' : 'smooth' }}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUpOrLeave}
+            onMouseLeave={onMouseUpOrLeave}
+            className="flex gap-4 overflow-x-auto no-scrollbar px-[calc(50%-140px)] pb-2 cursor-grab active:cursor-grabbing"
+            style={{ 
+              scrollBehavior: autoRotate ? 'auto' : 'smooth',
+              scrollSnapType: isDragging ? 'none' : 'x mandatory'
+            }}
           >
             {filtered.map((article, i) => {
               const color = CATEGORY_CONFIG[article.category]?.color || '#fff';
@@ -676,7 +730,11 @@ function ArticlesContent() {
                     article={article}
                     color={color}
                     isFocused={i === focusedIndex}
-                    onClick={(e) => startFlyingAnimation(article, e)}
+                    onClick={(e) => {
+                      if (!isDragging) {
+                        startFlyingAnimation(article, e);
+                      }
+                    }}
                   />
                 </div>
               );
