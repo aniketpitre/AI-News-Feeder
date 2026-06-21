@@ -18,6 +18,7 @@ function CameraRig() {
 function SceneContents() {
   const mainGroup = useRef<any>(null!);
   const coreRef = useRef<any>(null!);
+  const innerCoreRef = useRef<any>(null!);
   const materialRef = useRef<any>(null!);
   const lineGeometryRef = useRef<any>(null!);
   const starsGroupRef = useRef<any>(null!);
@@ -33,8 +34,8 @@ function SceneContents() {
 
   useFrame((state, delta) => {
     const scrollY = typeof window !== 'undefined' ? window.scrollY : 0;
-    const height = typeof window !== 'undefined' ? window.innerHeight : 800;
-    const scrollProgress = Math.min(scrollY / (height || 800), 1);
+    const docHeight = typeof document !== 'undefined' ? document.documentElement.scrollHeight - window.innerHeight : 1000;
+    const scrollProgress = docHeight > 0 ? Math.min(scrollY / docHeight, 1) : 0;
 
     const { width: vpWidth, height: vpHeight } = state.viewport;
     const isMobile = vpWidth < 7;
@@ -60,8 +61,8 @@ function SceneContents() {
 
     // 2. Mouse-reactive core orb rotation, distortion and drift
     if (coreRef.current) {
-      coreRef.current.rotation.y += delta * 0.12;
-      coreRef.current.rotation.x += delta * 0.04;
+      coreRef.current.rotation.y += delta * 0.15;
+      coreRef.current.rotation.x += delta * 0.06;
 
       // Disable mouse offset drift on touch screens to prevent jumpy touch frames
       const mouseXOffset = isMobile ? 0 : state.pointer.x * 1.0 * (1 - scrollProgress);
@@ -71,9 +72,10 @@ function SceneContents() {
       coreRef.current.position.y += (mouseYOffset - coreRef.current.position.y) * 0.05;
     }
 
-    if (materialRef.current) {
-      const mouseSpeed = Math.abs(state.pointer.x) + Math.abs(state.pointer.y);
-      materialRef.current.distort = 0.35 + (isMobile ? 0 : mouseSpeed * 0.25) + scrollProgress * 0.3;
+    if (innerCoreRef.current) {
+      innerCoreRef.current.rotation.y -= delta * 0.25;
+      innerCoreRef.current.rotation.z += delta * 0.10;
+      innerCoreRef.current.position.copy(coreRef.current.position);
     }
 
     // 3. Satellite orbiting
@@ -148,35 +150,53 @@ function SceneContents() {
       </group>
 
       <group ref={mainGroup}>
-        {/* Core Orb */}
+        {/* Core Crystals System */}
         <Float speed={1.4} rotationIntensity={0.3} floatIntensity={0.6}>
-          <mesh ref={coreRef}>
-            <sphereGeometry args={[1.8, 64, 64]} />
-            <MeshDistortMaterial
-              ref={materialRef}
-              color="#00FFC2"
-              attach="material"
-              distort={0.4}
-              speed={1.5}
-              roughness={0.1}
-              metalness={0.9}
-              emissive="#00FFC2"
-              emissiveIntensity={0.15}
-            />
-          </mesh>
+          <group>
+            {/* Outer Refracting Crystal */}
+            <mesh ref={coreRef}>
+              <icosahedronGeometry args={[1.8, 0]} />
+              <meshPhysicalMaterial
+                ref={materialRef}
+                color="#00FFC2"
+                emissive="#00FFC2"
+                emissiveIntensity={0.12}
+                roughness={0.08}
+                metalness={0.05}
+                transmission={0.92}
+                thickness={1.6}
+                ior={1.48}
+                clearcoat={1.0}
+                clearcoatRoughness={0.08}
+                transparent
+                opacity={0.95}
+              />
+            </mesh>
+            
+            {/* Inner Glowing Wireframe Core */}
+            <mesh ref={innerCoreRef}>
+              <icosahedronGeometry args={[1.45, 1]} />
+              <meshBasicMaterial
+                color="#00FFC2"
+                wireframe
+                transparent
+                opacity={0.35}
+              />
+            </mesh>
+          </group>
         </Float>
 
         {/* Orbiting Satellites */}
         {satelliteRefs.current.map((ref, i) => (
           <Float key={i} speed={1 + i * 0.2} rotationIntensity={1} floatIntensity={1.2}>
             <mesh ref={ref}>
-              <icosahedronGeometry args={[0.18, 0]} />
+              <octahedronGeometry args={[0.2, 0]} />
               <meshStandardMaterial
                 color="#ffffff"
-                metalness={0.6}
-                roughness={0.3}
+                metalness={0.8}
+                roughness={0.2}
                 emissive="#00FFC2"
-                emissiveIntensity={0.2}
+                emissiveIntensity={0.3}
               />
             </mesh>
           </Float>

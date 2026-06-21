@@ -76,10 +76,92 @@ export function InteractiveCard({ category, title, excerpt, date, onReadMore }: 
         }}
       />
 
-      {/* Media placeholder */}
-      <div className="h-44 w-full bg-gradient-to-br from-[#101010] to-[#161616] flex items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(circle_at_30%_30%,#00FFC2,transparent_60%)] group-hover:opacity-35 transition-opacity duration-300" />
-        <span className="text-[10px] font-bold uppercase tracking-widest text-white/30 z-[2]">Image / Media</span>
+      {/* Premium Igloo-inspired SVG Diagnostic Visual */}
+      <div className="h-44 w-full bg-black/80 relative overflow-hidden border-b border-white/5 flex items-center justify-center">
+        {/* Neon Tech Grid background */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#111_1px,transparent_1px),linear-gradient(to_bottom,#111_1px,transparent_1px)] bg-[size:14px_14px] opacity-40" />
+        
+        {/* Radial scanner glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,255,194,0.06),transparent_70%)] group-hover:bg-[radial-gradient(circle_at_center,rgba(0,255,194,0.12),transparent_60%)] transition-all duration-300" />
+        
+        <svg className="w-full h-full absolute inset-0 z-10 p-4" viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <style>{`
+            @keyframes sweep {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            @keyframes pulse-node {
+              0%, 100% { opacity: 0.2; r: 2px; }
+              50% { opacity: 0.9; r: 3.5px; }
+            }
+            @keyframes scanline {
+              0% { top: 0%; }
+              100% { top: 100%; }
+            }
+            @keyframes data-flow {
+              0% { transform: translateY(0); }
+              100% { transform: translateY(-30px); }
+            }
+            .radar-sweep {
+              transform-origin: 100px 60px;
+              animation: sweep 8s linear infinite;
+            }
+            .node-pulse-1 { animation: pulse-node 3s infinite ease-in-out; }
+            .node-pulse-2 { animation: pulse-node 4s infinite ease-in-out 1s; }
+            .node-pulse-3 { animation: pulse-node 2.5s infinite ease-in-out 1.5s; }
+            .data-text {
+              font-family: monospace;
+              font-size: 5px;
+              fill: rgba(0, 255, 194, 0.45);
+              animation: data-flow 12s linear infinite;
+            }
+          `}</style>
+
+          {/* Scrolling data packet column */}
+          <g className="opacity-40 group-hover:opacity-80 transition-opacity duration-300">
+            <text x="10" y="30" className="data-text">0x7F4B92 A1</text>
+            <text x="10" y="45" className="data-text">SYS_INIT_OK</text>
+            <text x="10" y="60" className="data-text">PORT_3001_CONN</text>
+            <text x="10" y="75" className="data-text">TR_SYNC_INIT</text>
+            <text x="10" y="90" className="data-text">BUFF_OVERFLOW_0</text>
+          </g>
+
+          {/* Circular Radar Grids */}
+          <circle cx="100" cy="60" r="45" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+          <circle cx="100" cy="60" r="30" stroke="rgba(0,255,194,0.05)" strokeWidth="1" strokeDasharray="3 3" />
+          <circle cx="100" cy="60" r="15" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+
+          {/* Radar Sweep Line */}
+          <line x1="100" y1="60" x2="100" y2="15" stroke="rgba(0, 255, 194, 0.25)" strokeWidth="1.5" className="radar-sweep" />
+
+          {/* Diagnostic Crosshairs */}
+          <path d="M100 5V15M100 105V115M5 60H15M185 60H195" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+
+          {/* Connected Network Nodes */}
+          <g>
+            {/* Connection lines */}
+            <line x1="60" y1="40" x2="100" y2="60" stroke="rgba(0, 255, 194, 0.08)" strokeWidth="1" />
+            <line x1="140" y1="80" x2="100" y2="60" stroke="rgba(0, 255, 194, 0.08)" strokeWidth="1" />
+            <line x1="130" y1="35" x2="100" y2="60" stroke="rgba(0, 255, 194, 0.08)" strokeWidth="1" />
+
+            {/* Glowing nodes */}
+            <circle cx="60" cy="40" r="2.5" fill="#00FFC2" className="node-pulse-1" />
+            <circle cx="140" cy="80" r="3" fill="#00FFC2" className="node-pulse-2" />
+            <circle cx="130" cy="35" r="2" fill="#00FFC2" className="node-pulse-3" />
+            <circle cx="100" cy="60" r="4" fill="#00FFC2" className="opacity-80" />
+          </g>
+
+          {/* Border decorative frames */}
+          <rect x="2" y="2" width="196" height="116" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+        </svg>
+
+        {/* Scanline Overlay */}
+        <div className="absolute inset-x-0 h-0.5 bg-[#00FFC2]/5 pointer-events-none z-20 animate-[scanline_4s_linear_infinite]" style={{
+          animationName: 'scanline',
+          animationDuration: '4s',
+          animationTimingFunction: 'linear',
+          animationIterationCount: 'infinite'
+        }} />
       </div>
 
       <div className="p-6 relative z-20">

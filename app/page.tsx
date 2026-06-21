@@ -98,7 +98,16 @@ function HomeContent() {
     : articles.filter(a => a.category.toLowerCase() === activeCategory.toLowerCase());
 
   return (
-    <div className="w-full">
+    <div className="w-full relative">
+      {/* Fixed Background 3D Scene */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <HeroCanvas />
+      </div>
+
+      {/* Decorative vertical gridlines inspired by Igloo.inc */}
+      <div className="fixed inset-y-0 left-6 md:left-12 lg:left-20 w-px bg-white/[0.04] z-10 pointer-events-none" />
+      <div className="fixed inset-y-0 right-6 md:right-12 lg:right-20 w-px bg-white/[0.04] z-10 pointer-events-none" />
+
       {/* HERO SECTION */}
       <section
         ref={heroRef}
@@ -118,7 +127,7 @@ function HomeContent() {
             Live Network Feed
           </span>
           <h1
-            className="text-4xl sm:text-7xl md:text-8xl font-black tracking-tighter leading-[0.95] select-none transition-all duration-300 pointer-events-auto cursor-default"
+            className="font-mono text-4xl sm:text-7xl md:text-8xl font-black tracking-tighter leading-[0.95] select-none transition-all duration-300 pointer-events-auto cursor-default"
             style={{
               backgroundImage: 'radial-gradient(550px circle at var(--mx) var(--my), #00FFC2 0%, #ffffff 45%, #ffffff 100%)',
               WebkitBackgroundClip: 'text',
@@ -147,12 +156,12 @@ function HomeContent() {
               <button
                 key={name}
                 onClick={() => handleCategoryClick(name)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-200 cursor-pointer shrink-0 border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 cursor-pointer shrink-0 border ${
                   isActive ? 'text-[#00FFC2] border-[#00FFC2] bg-[#00FFC2]/5 scale-105' : 'text-white/50 border-transparent hover:text-[#00FFC2]'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span className="text-xs font-bold uppercase tracking-widest">
+                <Icon className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-mono font-bold uppercase tracking-[0.18em]">
                   <TextScramble text={name} trigger="hover" />
                 </span>
               </button>
@@ -167,8 +176,8 @@ function HomeContent() {
           <h2 className="text-3xl sm:text-4xl font-black tracking-tighter">
             Latest <TextScramble text={activeCategory === 'all' ? 'Transmissions' : activeCategory} trigger="both" />
           </h2>
-          <span className="text-xs font-bold uppercase tracking-widest text-white/30 font-mono">
-            {filteredArticles.length} Nodes Found
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 font-mono">
+            // {filteredArticles.length} NODES_ACTIVE
           </span>
         </div>
 
