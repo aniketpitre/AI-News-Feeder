@@ -130,8 +130,6 @@ function OrbitCard({ article, color, baseAngle, radius, yOffset, tilt, speedRef,
     group.current.scale.setScalar(scale);
   });
 
-  const isFront = group.current ? group.current.position.z > 0 : true;
-
   return (
     <group ref={group}>
       <Html
@@ -199,24 +197,30 @@ function CameraRig({ paused }: { paused: boolean }) {
   return null;
 }
 
-function OrbitScene({ articles, color, paused, selectedId, onSelect }: {
+function OrbitScene({ articles, color, paused, selectedId, onSelect, readArticleIds }: {
   articles: MockArticle[]; color: string; paused: boolean; selectedId: string | null; onSelect: (a: MockArticle) => void;
+  readArticleIds: Set<string>;
 }) {
   const speedRef = useRef(0.06);
 
+  // Only display articles that are in readArticleIds
+  const orbitingArticles = useMemo(() => {
+    return articles.filter(a => readArticleIds.has(a.id));
+  }, [articles, readArticleIds]);
+
   const cardConfigs = useMemo(() => {
-    const n = articles.length;
-    return articles.map((_, i) => {
+    const n = orbitingArticles.length;
+    return orbitingArticles.map((_, i) => {
       const ring = i % 3; // distribute across 3 orbit rings
       const inRingIdx = Math.floor(i / 3);
       const inRingCount = Math.ceil(n / 3);
       const baseAngle = (inRingIdx / Math.max(inRingCount, 1)) * Math.PI * 2 + ring * 0.6;
-      const radius = 4.2 + ring * 1.5;
+      const radius = 3.8 + ring * 1.3;
       const tilt = [Math.PI / 2.5, Math.PI / 3, Math.PI / 2.1][ring];
       const yOffset = [0, 0.4, -0.3][ring];
       return { baseAngle, radius, tilt, yOffset };
     });
-  }, [articles]);
+  }, [orbitingArticles]);
 
   return (
     <>
@@ -228,7 +232,7 @@ function OrbitScene({ articles, color, paused, selectedId, onSelect }: {
       <BackgroundOrbs />
       <Planet color={color} />
       <RingSystem color={color} />
-      {articles.map((article, i) => (
+      {orbitingArticles.map((article, i) => (
         <OrbitCard
           key={article.id}
           article={article}
@@ -257,12 +261,153 @@ const CATS = [
   { name: 'Cyber SOC', icon: Shield },
 ];
 
+// ─── Article Card — 2D carousel style with tilt and glow ──────────────────────
+function ArticleCard({ article, color, isFocused, onClick, style }: {
+  article: MockArticle; color: string; isFocused: boolean; onClick: (e: React.MouseEvent<HTMLButtonElement>) => void; style?: React.CSSProperties;
+}) {
+  const cardRef = useRef<HTMLButtonElement>(null);
+  const [hovered, setHovered] = useState(false);
+  const [coords, setCoords] = useState({ x: 140, y: 100 });
+  const rafRef = useRef<number | null>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (typeof window !== 'undefined' && !window.matchMedia('(hover: hover)').matches) return;
+    const card = cardRef.current;
+    if (!card) return;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      setCoords({ x, y });
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const rotateX = -((y - centerY) / centerY) * 8;
+      const rotateY = ((x - centerX) / centerX) * 8;
+      card.style.setProperty('--rx', `${rotateX}deg`);
+      card.style.setProperty('--ry', `${rotateY}deg`);
+    });
+  };
+
+  const handleEnter = () => setHovered(true);
+  const handleLeave = () => {
+    setHovered(false);
+    const card = cardRef.current;
+    if (card) {
+      card.style.setProperty('--rx', '0deg');
+      card.style.setProperty('--ry', '0deg');
+    }
+  };
+
+  const lift = isFocused ? -10 : hovered ? -6 : 0;
+  const scale = isFocused ? 1.03 : hovered ? 1.015 : 1;
+
+  return (
+    <button
+      ref={cardRef}
+      onClick={onClick}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+      onMouseMove={handleMouseMove}
+      className="shrink-0 text-left rounded-2xl overflow-hidden relative"
+      style={{
+        width: 280,
+        background: 'rgba(5,7,14,0.82)',
+        border: `1px solid ${isFocused ? color : 'rgba(255,255,255,0.08)'}`,
+        boxShadow: isFocused
+          ? `0 0 36px ${color}35, 0 20px 48px rgba(0,0,0,0.65)`
+          : hovered ? `0 0 24px ${color}25, 0 14px 32px rgba(0,0,0,0.55)` : '0 4px 16px rgba(0,0,0,0.4)',
+        backdropFilter: 'blur(18px)',
+        transform: `perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(${lift}px) scale(${scale})`,
+        transition: hovered
+          ? 'box-shadow 0.25s ease, border-color 0.25s ease'
+          : 'transform 0.5s cubic-bezier(0.16,1,0.3,1), box-shadow 0.4s ease, border-color 0.4s ease',
+        '--rx': '0deg',
+        '--ry': '0deg',
+        ...style,
+      } as React.CSSProperties}
+    >
+      {/* Cursor spotlight glow */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 z-10"
+        style={{
+          opacity: hovered ? 1 : 0,
+          background: `radial-gradient(180px circle at ${coords.x}px ${coords.y}px, ${color}18, transparent 70%)`,
+        }}
+      />
+      {/* Glass shimmer sweep */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 z-10"
+        style={{
+          opacity: hovered ? 0.5 : 0,
+          background: `linear-gradient(105deg, transparent 30%, ${color}22 45%, transparent 60%)`,
+          backgroundSize: '250% 250%',
+          backgroundPosition: hovered ? '0% 0%' : '120% 120%',
+          transition: 'background-position 0.8s ease, opacity 0.3s ease',
+        }}
+      />
+      {/* Border glow mask */}
+      <div
+        className="pointer-events-none absolute inset-0 z-[1]"
+        style={{
+          opacity: hovered ? 1 : 0,
+          transition: 'opacity 0.3s ease',
+          background: `radial-gradient(140px circle at ${coords.x}px ${coords.y}px, ${color}50, transparent 80%)`,
+          padding: '1px',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMaskComposite: 'xor',
+          maskComposite: 'exclude',
+        }}
+      />
+
+      <div className="h-0.5 w-full relative z-20" style={{ background: `linear-gradient(to right, ${color}, transparent)`, opacity: isFocused || hovered ? 1 : 0.3 }} />
+      <div className="p-5 relative z-20">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border"
+            style={{ color, borderColor: `${color}40`, background: `${color}10` }}>
+            {article.category}
+          </span>
+          <span className="text-[8px] font-mono text-white/25">{article.date}</span>
+        </div>
+        <h3 className="text-[13px] font-black leading-snug mb-2 line-clamp-2 transition-colors duration-200"
+          style={{ color: isFocused || hovered ? color : 'rgba(255,255,255,0.9)' }}>
+          {article.title}
+        </h3>
+        <p className="text-[10.5px] text-white/35 leading-relaxed line-clamp-2">
+          {article.summary}
+        </p>
+        <div className="mt-3 flex items-center gap-1 text-[8px] font-black uppercase tracking-widest transition-all duration-200"
+          style={{ color: isFocused || hovered ? color : 'rgba(255,255,255,0.25)', gap: hovered ? '6px' : '4px' }}>
+          Read More →
+        </div>
+      </div>
+    </button>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 function ArticlesContent() {
   const [articles, setArticles] = useState<MockArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<MockArticle | null>(null);
   const [search, setSearch] = useState('');
+  
+  // Carousel and Orbit state
+  const [readArticleIds, setReadArticleIds] = useState<Set<string>>(new Set());
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const [hasEntered, setHasEntered] = useState(false);
+  const [autoRotate, setAutoRotate] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const autoRotateTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const resumeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Flying Card Animation
+  const [flyingCard, setFlyingCard] = useState<{
+    article: MockArticle;
+    startRect: DOMRect;
+    animating: boolean;
+  } | null>(null);
+
   const searchParams = useSearchParams();
   const router = useRouter();
   const cat = searchParams.get('category') || 'all';
@@ -291,6 +436,14 @@ function ArticlesContent() {
     load();
   }, []);
 
+  // Staggered entrance — cards reveal one by one like a carousel intro
+  useEffect(() => {
+    if (!loading && articles.length > 0 && !hasEntered) {
+      const t = setTimeout(() => setHasEntered(true), 100);
+      return () => clearTimeout(t);
+    }
+  }, [loading, articles.length, hasEntered]);
+
   const filtered = useMemo(() => {
     let list = articles;
     if (cat !== 'all') list = list.filter(a => a.category.toLowerCase() === cat.toLowerCase());
@@ -298,32 +451,136 @@ function ArticlesContent() {
       const s = search.toLowerCase();
       list = list.filter(a => a.title.toLowerCase().includes(s));
     }
-    return list.slice(0, 18); // cap for perf — orbiting HTML nodes are expensive
+    return list;
   }, [articles, cat, search]);
 
-  useEffect(() => { setSelected(null); }, [cat, search]);
+  useEffect(() => { setFocusedIndex(0); setSelected(null); if (scrollRef.current) scrollRef.current.scrollLeft = 0; }, [cat, search]);
 
+  const focusedArticle = filtered[focusedIndex] ?? null;
   const activeColor = selected
     ? (CATEGORY_CONFIG[selected.category]?.color ?? CATEGORY_CONFIG.General.color)
-    : '#00FFC2';
+    : focusedArticle
+      ? (CATEGORY_CONFIG[focusedArticle.category]?.color ?? CATEGORY_CONFIG.General.color)
+      : '#00FFC2';
 
-  // Orbit pauses fully whenever the detail panel is open
-  const paused = !!selected;
+  const scrollByCards = useCallback((dir: 1 | -1) => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollBy({ left: dir * 300, behavior: 'smooth' });
+  }, []);
 
+  // Track focused card via scroll position
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const container = scrollRef.current;
+    const center = container.scrollLeft + container.clientWidth / 2;
+    let closestIdx = 0;
+    let closestDist = Infinity;
+    Array.from(container.children).forEach((child, i) => {
+      const el = child as HTMLElement;
+      const elCenter = el.offsetLeft + el.offsetWidth / 2;
+      const dist = Math.abs(elCenter - center);
+      if (dist < closestDist) { closestDist = dist; closestIdx = i; }
+    });
+    setFocusedIndex(closestIdx);
+  }, []);
+
+  // Pause auto-rotate on any manual interaction, resume after 4s idle
+  const pauseAutoRotate = useCallback(() => {
+    setAutoRotate(false);
+    if (resumeTimeout.current) clearTimeout(resumeTimeout.current);
+    resumeTimeout.current = setTimeout(() => setAutoRotate(true), 4000);
+  }, []);
+
+  const handleManualScroll = useCallback((dir: 1 | -1) => {
+    pauseAutoRotate();
+    scrollByCards(dir);
+  }, [pauseAutoRotate, scrollByCards]);
+
+  // Auto-rotate carousel — slow continuous drift when idle
+  useEffect(() => {
+    if (autoRotateTimer.current) clearInterval(autoRotateTimer.current);
+    if (!autoRotate || !hasEntered || filtered.length <= 1 || selected || flyingCard) return;
+
+    autoRotateTimer.current = setInterval(() => {
+      const container = scrollRef.current;
+      if (!container) return;
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      if (container.scrollLeft >= maxScroll - 5) {
+        container.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        container.scrollBy({ left: 1.2, behavior: 'auto' });
+      }
+    }, 30);
+
+    return () => { if (autoRotateTimer.current) clearInterval(autoRotateTimer.current); };
+  }, [autoRotate, hasEntered, filtered.length, selected, flyingCard]);
+
+  // Resume auto-rotate after closing the article panel
+  useEffect(() => {
+    if (!selected) {
+      if (resumeTimeout.current) clearTimeout(resumeTimeout.current);
+      resumeTimeout.current = setTimeout(() => setAutoRotate(true), 1200);
+    } else {
+      setAutoRotate(false);
+    }
+  }, [selected]);
+
+  // Keyboard navigation
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSelected(null);
+      if (e.key === 'ArrowLeft') handleManualScroll(-1);
+      if (e.key === 'ArrowRight') handleManualScroll(1);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [handleManualScroll]);
+
+  // Orbit pauses fully whenever the detail panel is open or a card is flying
+  const paused = !!selected || !!flyingCard;
+
+  // Triggers flying animation from 2D carousel card to 3D Orbit
+  const startFlyingAnimation = (article: MockArticle, e: React.MouseEvent<HTMLButtonElement>) => {
+    if (flyingCard) return;
+    pauseAutoRotate();
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    setFlyingCard({
+      article,
+      startRect: rect,
+      animating: false,
+    });
+
+    // Start transition on the next tick
+    setTimeout(() => {
+      setFlyingCard(prev => prev ? { ...prev, animating: true } : null);
+    }, 20);
+
+    // End transition and open full detail panel
+    setTimeout(() => {
+      setSelected(article);
+      setReadArticleIds(prev => {
+        const next = new Set(prev);
+        next.add(article.id);
+        return next;
+      });
+      setFlyingCard(null);
+    }, 820);
+  };
 
   return (
     <div className="relative w-full bg-[#030508] overflow-hidden select-none" style={{ height: 'calc(100vh - 97px)' }}>
       {/* 3D orbit scene — IS the article browser now */}
       <Canvas camera={{ position: [0, 0, 8.5], fov: 55 }} className="absolute inset-0">
         <Suspense fallback={null}>
-          <OrbitScene articles={filtered} color={activeColor} paused={paused} selectedId={selected?.id ?? null} onSelect={setSelected} />
+          <OrbitScene 
+            articles={filtered} 
+            color={activeColor} 
+            paused={paused} 
+            selectedId={selected?.id ?? null} 
+            onSelect={setSelected} 
+            readArticleIds={readArticleIds}
+          />
         </Suspense>
       </Canvas>
 
@@ -342,7 +599,7 @@ function ArticlesContent() {
           </span>
         </div>
         <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">
-          {loading ? 'Syncing nodes...' : `${filtered.length} transmissions in orbit`}
+          {loading ? 'Syncing nodes...' : `${readArticleIds.size} transmissions in orbit`}
         </div>
       </div>
 
@@ -369,16 +626,69 @@ function ArticlesContent() {
         </div>
       </div>
 
-      {/* Hint — bottom center */}
-      {!selected && !loading && filtered.length > 0 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-          <div className="flex items-center gap-3 text-[9px] font-mono text-white/20 uppercase tracking-widest">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: activeColor }} />
-              Orbiting
-            </span>
+      {/* ── Horizontal scrolling cards — bottom anchored ── */}
+      {!loading && filtered.length > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 z-20 pb-8 pt-24"
+          style={{ background: 'linear-gradient(to top, rgba(3,5,8,0.85) 20%, transparent 100%)' }}>
+          {/* Left/Right arrows */}
+          <button onClick={() => handleManualScroll(-1)}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+            style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${activeColor}30`, backdropFilter: 'blur(10px)', color: activeColor }}>
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button onClick={() => handleManualScroll(1)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+            style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${activeColor}30`, backdropFilter: 'blur(10px)', color: activeColor }}>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          {/* Scrollable row */}
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            onWheel={pauseAutoRotate}
+            onTouchStart={pauseAutoRotate}
+            className="flex gap-4 overflow-x-auto no-scrollbar px-[calc(50%-140px)] snap-x snap-mandatory pb-2"
+            style={{ scrollBehavior: autoRotate ? 'auto' : 'smooth' }}
+          >
+            {filtered.map((article, i) => {
+              const color = CATEGORY_CONFIG[article.category]?.color || '#fff';
+              const isFlying = flyingCard?.article.id === article.id;
+              return (
+                <div
+                  key={article.id}
+                  className="snap-center"
+                  style={{
+                    opacity: isFlying ? 0.15 : hasEntered ? 1 : 0,
+                    transform: hasEntered ? 'translateY(0px) scale(1)' : 'translateY(40px) scale(0.92)',
+                    transition: isFlying
+                      ? 'opacity 0.3s ease'
+                      : `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms`,
+                  }}
+                >
+                  <ArticleCard
+                    article={article}
+                    color={color}
+                    isFocused={i === focusedIndex}
+                    onClick={(e) => startFlyingAnimation(article, e)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Counter + hint */}
+          <div className="flex items-center justify-center gap-3 mt-4 text-[9px] font-mono text-white/20 uppercase tracking-widest">
+            <span>{focusedIndex + 1} / {filtered.length}</span>
             <span className="w-1 h-1 rounded-full bg-white/20" />
-            <span>Click any node to read</span>
+            {autoRotate ? (
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: activeColor }} />
+                Auto-cycling
+              </span>
+            ) : (
+              <span>← → Scroll · Click Card to Read</span>
+            )}
           </div>
         </div>
       )}
@@ -392,6 +702,64 @@ function ArticlesContent() {
           </div>
         </div>
       )}
+
+      {/* Flying card animation overlay */}
+      {flyingCard && (() => {
+        const color = CATEGORY_CONFIG[flyingCard.article.category]?.color || '#fff';
+        const start = flyingCard.startRect;
+        const style = flyingCard.animating
+          ? {
+              position: 'fixed' as const,
+              top: '40%',
+              left: '50%',
+              width: 280,
+              transform: 'translate(-50%, -50%) scale(0.7) rotateX(20deg) rotateY(-20deg)',
+              opacity: 0,
+              background: 'rgba(5,7,14,0.9)',
+              border: `1px solid ${color}`,
+              boxShadow: `0 0 40px ${color}60`,
+              backdropFilter: 'blur(24px)',
+              transition: 'all 0.8s cubic-bezier(0.25, 1, 0.5, 1)',
+              zIndex: 9999,
+            }
+          : {
+              position: 'fixed' as const,
+              top: start.top,
+              left: start.left,
+              width: start.width,
+              height: start.height,
+              transform: 'translate(0, 0) scale(1)',
+              opacity: 1,
+              background: 'rgba(5,7,14,0.82)',
+              border: `1px solid rgba(255,255,255,0.08)`,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(18px)',
+              transition: 'none',
+              zIndex: 9999,
+            };
+
+        return (
+          <div
+            className="rounded-2xl overflow-hidden p-5 pointer-events-none"
+            style={style}
+          >
+            <div className="h-0.5 w-full mb-3" style={{ background: `linear-gradient(to right, ${color}, transparent)` }} />
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border"
+                style={{ color, borderColor: `${color}40`, background: `${color}10` }}>
+                {flyingCard.article.category}
+              </span>
+              <span className="text-[8px] font-mono text-white/25">{flyingCard.article.date}</span>
+            </div>
+            <h3 className="text-[13px] font-black leading-snug mb-2 text-white/90">
+              {flyingCard.article.title}
+            </h3>
+            <p className="text-[10.5px] text-white/35 leading-relaxed line-clamp-2">
+              {flyingCard.article.summary}
+            </p>
+          </div>
+        );
+      })()}
 
       {/* ── Detail panel ── */}
       <div
