@@ -17,6 +17,8 @@ import { mockArticles } from '@/lib/mock-articles';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { normalizeTopic } from '@/lib/normalize-topic';
 import Link from 'next/link';
+import { SystemControlCenter } from '@/components/SystemControlCenter';
+
 
 // IcebergScene is heavy (WebGL); load client-only, no SSR
 const IcebergScene = dynamic(() => import('@/components/IcebergScene'), { ssr: false });
@@ -80,7 +82,12 @@ function WaypointSection({
 
   if (isFooter) {
     return (
-      <footer data-waypoint-section className="relative w-full min-h-[100vh] flex flex-col items-center justify-center px-6 text-center">
+      <footer data-waypoint-section className="relative w-full min-h-[100vh] flex flex-col items-center justify-center px-6 py-20 text-center">
+        {/* System Control & Diagnostics Dashboard (Igloo.inc inspired) */}
+        <div className="w-full max-w-5xl mx-auto mb-16 text-left">
+          <SystemControlCenter />
+        </div>
+
         <RevealOnScroll>
           <h2 className="font-mono text-4xl sm:text-6xl md:text-7xl font-black tracking-tighter leading-none text-white">
             STAY_SYNCED<span className="text-[#00FFC2]">.</span>
