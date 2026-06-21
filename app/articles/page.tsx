@@ -60,6 +60,7 @@ function OrbitingMoons({ color, orbPos }: { color: string; orbPos: React.Mutable
   );
 }
 
+// Moon component
 function Moon({ radius, tilt, tiltZ, speed, size, offset, color, orbPos }: {
   radius: number; tilt: number; tiltZ: number; speed: number; size: number; offset: number; color: string;
   orbPos: React.MutableRefObject<THREE.Vector3>;
@@ -131,6 +132,7 @@ function ActiveOrb({ color, orbPos }: { color: string; orbPos: React.MutableRefO
   );
 }
 
+// Ring system
 function RingSystem({ color }: { color: string }) {
   const group = useRef<THREE.Group>(null!);
   const ring1 = useRef<THREE.Mesh>(null!);
@@ -208,31 +210,107 @@ const CATS = [
   { name: 'Cyber SOC', icon: Shield },
 ];
 
-// ─── Article Card ─────────────────────────────────────────────────────────────
+// ─── Article Card — igloo-style interactive tilt + cursor glow ────────────────
 function ArticleCard({ article, color, isFocused, onClick, style }: {
   article: MockArticle; color: string; isFocused: boolean; onClick: () => void; style?: React.CSSProperties;
 }) {
+  const cardRef = useRef<HTMLButtonElement>(null);
   const [hovered, setHovered] = useState(false);
+  const [coords, setCoords] = useState({ x: 140, y: 100 });
+  const rafRef = useRef<number | null>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (typeof window !== 'undefined' && !window.matchMedia('(hover: hover)').matches) return;
+    const card = cardRef.current;
+    if (!card) return;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      setCoords({ x, y });
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const rotateX = -((y - centerY) / centerY) * 8;
+      const rotateY = ((x - centerX) / centerX) * 8;
+      card.style.setProperty('--rx', `${rotateX}deg`);
+      card.style.setProperty('--ry', `${rotateY}deg`);
+    });
+  };
+
+  const handleEnter = () => setHovered(true);
+  const handleLeave = () => {
+    setHovered(false);
+    const card = cardRef.current;
+    if (card) {
+      card.style.setProperty('--rx', '0deg');
+      card.style.setProperty('--ry', '0deg');
+    }
+  };
+
+  const lift = isFocused ? -10 : hovered ? -6 : 0;
+  const scale = isFocused ? 1.03 : hovered ? 1.015 : 1;
+
   return (
     <button
+      ref={cardRef}
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="shrink-0 text-left rounded-2xl overflow-hidden transition-all duration-300 ease-out"
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+      onMouseMove={handleMouseMove}
+      className="shrink-0 text-left rounded-2xl overflow-hidden relative"
       style={{
         width: 280,
         background: 'rgba(5,7,14,0.82)',
         border: `1px solid ${isFocused ? color : 'rgba(255,255,255,0.08)'}`,
         boxShadow: isFocused
-          ? `0 0 36px ${color}35, 0 16px 40px rgba(0,0,0,0.6)`
-          : hovered ? `0 0 20px ${color}20, 0 8px 24px rgba(0,0,0,0.5)` : '0 4px 16px rgba(0,0,0,0.4)',
+          ? `0 0 36px ${color}35, 0 20px 48px rgba(0,0,0,0.65)`
+          : hovered ? `0 0 24px ${color}25, 0 14px 32px rgba(0,0,0,0.55)` : '0 4px 16px rgba(0,0,0,0.4)',
         backdropFilter: 'blur(18px)',
-        transform: isFocused ? 'translateY(-8px) scale(1.02)' : hovered ? 'translateY(-4px)' : 'translateY(0)',
+        transform: `perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(${lift}px) scale(${scale})`,
+        transition: hovered
+          ? 'box-shadow 0.25s ease, border-color 0.25s ease'
+          : 'transform 0.5s cubic-bezier(0.16,1,0.3,1), box-shadow 0.4s ease, border-color 0.4s ease',
+        '--rx': '0deg',
+        '--ry': '0deg',
         ...style,
-      }}
+      } as React.CSSProperties}
     >
-      <div className="h-0.5 w-full" style={{ background: `linear-gradient(to right, ${color}, transparent)`, opacity: isFocused || hovered ? 1 : 0.3 }} />
-      <div className="p-5">
+      {/* Cursor spotlight glow */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 z-10"
+        style={{
+          opacity: hovered ? 1 : 0,
+          background: `radial-gradient(180px circle at ${coords.x}px ${coords.y}px, ${color}18, transparent 70%)`,
+        }}
+      />
+      {/* Glass shimmer sweep */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 z-10"
+        style={{
+          opacity: hovered ? 0.5 : 0,
+          background: `linear-gradient(105deg, transparent 30%, ${color}22 45%, transparent 60%)`,
+          backgroundSize: '250% 250%',
+          backgroundPosition: hovered ? '0% 0%' : '120% 120%',
+          transition: 'background-position 0.8s ease, opacity 0.3s ease',
+        }}
+      />
+      {/* Border glow mask */}
+      <div
+        className="pointer-events-none absolute inset-0 z-[1]"
+        style={{
+          opacity: hovered ? 1 : 0,
+          transition: 'opacity 0.3s ease',
+          background: `radial-gradient(140px circle at ${coords.x}px ${coords.y}px, ${color}50, transparent 80%)`,
+          padding: '1px',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMaskComposite: 'xor',
+          maskComposite: 'exclude',
+        }}
+      />
+
+      <div className="h-0.5 w-full relative z-20" style={{ background: `linear-gradient(to right, ${color}, transparent)`, opacity: isFocused || hovered ? 1 : 0.3 }} />
+      <div className="p-5 relative z-20">
         <div className="flex items-center justify-between mb-3">
           <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border"
             style={{ color, borderColor: `${color}40`, background: `${color}10` }}>
@@ -240,15 +318,15 @@ function ArticleCard({ article, color, isFocused, onClick, style }: {
           </span>
           <span className="text-[8px] font-mono text-white/25">{article.date}</span>
         </div>
-        <h3 className="text-[13px] font-black leading-snug mb-2 line-clamp-2"
-          style={{ color: isFocused ? color : 'rgba(255,255,255,0.9)' }}>
+        <h3 className="text-[13px] font-black leading-snug mb-2 line-clamp-2 transition-colors duration-200"
+          style={{ color: isFocused || hovered ? color : 'rgba(255,255,255,0.9)' }}>
           {article.title}
         </h3>
         <p className="text-[10.5px] text-white/35 leading-relaxed line-clamp-2">
           {article.summary}
         </p>
-        <div className="mt-3 flex items-center gap-1 text-[8px] font-black uppercase tracking-widest"
-          style={{ color: isFocused || hovered ? color : 'rgba(255,255,255,0.25)' }}>
+        <div className="mt-3 flex items-center gap-1 text-[8px] font-black uppercase tracking-widest transition-all duration-200"
+          style={{ color: isFocused || hovered ? color : 'rgba(255,255,255,0.25)', gap: hovered ? '6px' : '4px' }}>
           Read More →
         </div>
       </div>
