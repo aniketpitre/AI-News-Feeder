@@ -60,7 +60,6 @@ function OrbitingMoons({ color, orbPos }: { color: string; orbPos: React.Mutable
   );
 }
 
-// Moon component
 function Moon({ radius, tilt, tiltZ, speed, size, offset, color, orbPos }: {
   radius: number; tilt: number; tiltZ: number; speed: number; size: number; offset: number; color: string;
   orbPos: React.MutableRefObject<THREE.Vector3>;
@@ -132,7 +131,6 @@ function ActiveOrb({ color, orbPos }: { color: string; orbPos: React.MutableRefO
   );
 }
 
-// Ring system
 function RingSystem({ color }: { color: string }) {
   const group = useRef<THREE.Group>(null!);
   const ring1 = useRef<THREE.Mesh>(null!);
@@ -183,6 +181,7 @@ function CameraRig() {
   return null;
 }
 
+// Scene3D
 function Scene3D({ color }: { color: string }) {
   const orbPos = useRef(new THREE.Vector3(0, 0.6, -1.5));
   return (
@@ -341,7 +340,11 @@ function ArticlesContent() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [selected, setSelected] = useState<MockArticle | null>(null);
   const [search, setSearch] = useState('');
+  const [hasEntered, setHasEntered] = useState(false);
+  const [autoRotate, setAutoRotate] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const autoRotateTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const resumeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const cat = searchParams.get('category') || 'all';
@@ -369,6 +372,14 @@ function ArticlesContent() {
     }
     load();
   }, []);
+
+  // Staggered entrance — cards reveal one by one like a carousel intro
+  useEffect(() => {
+    if (!loading && articles.length > 0 && !hasEntered) {
+      const t = setTimeout(() => setHasEntered(true), 100);
+      return () => clearTimeout(t);
+    }
+  }, [loading, articles.length, hasEntered]);
 
   const filtered = useMemo(() => {
     let list = articles;
@@ -406,16 +417,57 @@ function ArticlesContent() {
     setFocusedIndex(closestIdx);
   }, []);
 
+  // Pause auto-rotate on any manual interaction, resume after 4s idle
+  const pauseAutoRotate = useCallback(() => {
+    setAutoRotate(false);
+    if (resumeTimeout.current) clearTimeout(resumeTimeout.current);
+    resumeTimeout.current = setTimeout(() => setAutoRotate(true), 4000);
+  }, []);
+
+  const handleManualScroll = useCallback((dir: 1 | -1) => {
+    pauseAutoRotate();
+    scrollByCards(dir);
+  }, [pauseAutoRotate, scrollByCards]);
+
+  // Auto-rotate carousel — slow continuous drift when idle
+  useEffect(() => {
+    if (autoRotateTimer.current) clearInterval(autoRotateTimer.current);
+    if (!autoRotate || !hasEntered || filtered.length <= 1 || selected) return;
+
+    autoRotateTimer.current = setInterval(() => {
+      const container = scrollRef.current;
+      if (!container) return;
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      if (container.scrollLeft >= maxScroll - 5) {
+        container.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        container.scrollBy({ left: 1.2, behavior: 'auto' });
+      }
+    }, 30);
+
+    return () => { if (autoRotateTimer.current) clearInterval(autoRotateTimer.current); };
+  }, [autoRotate, hasEntered, filtered.length, selected]);
+
+  // Resume auto-rotate after closing the article panel
+  useEffect(() => {
+    if (!selected) {
+      if (resumeTimeout.current) clearTimeout(resumeTimeout.current);
+      resumeTimeout.current = setTimeout(() => setAutoRotate(true), 1200);
+    } else {
+      setAutoRotate(false);
+    }
+  }, [selected]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSelected(null);
-      if (e.key === 'ArrowLeft') scrollByCards(-1);
-      if (e.key === 'ArrowRight') scrollByCards(1);
-      if (e.key === 'Enter' && focusedArticle) setSelected(focusedArticle);
+      if (e.key === 'ArrowLeft') handleManualScroll(-1);
+      if (e.key === 'ArrowRight') handleManualScroll(1);
+      if (e.key === 'Enter' && focusedArticle) { pauseAutoRotate(); setSelected(focusedArticle); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [scrollByCards, focusedArticle]);
+  }, [handleManualScroll, focusedArticle, pauseAutoRotate]);
 
   return (
     <div className="relative w-full bg-[#030508] overflow-hidden select-none" style={{ height: 'calc(100vh - 97px)' }}>
@@ -473,12 +525,12 @@ function ArticlesContent() {
         <div className="absolute bottom-0 left-0 right-0 z-10 pb-8 pt-24"
           style={{ background: 'linear-gradient(to top, rgba(3,5,8,0.85) 20%, transparent 100%)' }}>
           {/* Left/Right arrows */}
-          <button onClick={() => scrollByCards(-1)}
+          <button onClick={() => handleManualScroll(-1)}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
             style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${activeColor}30`, backdropFilter: 'blur(10px)', color: activeColor }}>
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <button onClick={() => scrollByCards(1)}
+          <button onClick={() => handleManualScroll(1)}
             className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
             style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${activeColor}30`, backdropFilter: 'blur(10px)', color: activeColor }}>
             <ChevronRight className="w-4 h-4" />
@@ -488,18 +540,28 @@ function ArticlesContent() {
           <div
             ref={scrollRef}
             onScroll={handleScroll}
+            onWheel={pauseAutoRotate}
+            onTouchStart={pauseAutoRotate}
             className="flex gap-4 overflow-x-auto no-scrollbar px-[calc(50%-140px)] snap-x snap-mandatory pb-2"
-            style={{ scrollBehavior: 'smooth' }}
+            style={{ scrollBehavior: autoRotate ? 'auto' : 'smooth' }}
           >
             {filtered.map((article, i) => {
               const color = CATEGORY_CONFIG[article.category]?.color || '#fff';
               return (
-                <div key={article.id} className="snap-center">
+                <div
+                  key={article.id}
+                  className="snap-center"
+                  style={{
+                    opacity: hasEntered ? 1 : 0,
+                    transform: hasEntered ? 'translateY(0px) scale(1)' : 'translateY(40px) scale(0.92)',
+                    transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms`,
+                  }}
+                >
                   <ArticleCard
                     article={article}
                     color={color}
                     isFocused={i === focusedIndex}
-                    onClick={() => setSelected(article)}
+                    onClick={() => { pauseAutoRotate(); setSelected(article); }}
                   />
                 </div>
               );
@@ -510,7 +572,14 @@ function ArticlesContent() {
           <div className="flex items-center justify-center gap-3 mt-4 text-[9px] font-mono text-white/20 uppercase tracking-widest">
             <span>{focusedIndex + 1} / {filtered.length}</span>
             <span className="w-1 h-1 rounded-full bg-white/20" />
-            <span>← → Scroll · Enter to Open</span>
+            {autoRotate ? (
+              <span className="flex items-center gap-1.5">
+                <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: activeColor }} />
+                Auto-cycling
+              </span>
+            ) : (
+              <span>← → Scroll · Enter to Open</span>
+            )}
           </div>
         </div>
       )}
