@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, Suspense, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Stars, MeshDistortMaterial, Sphere, Float } from '@react-three/drei';
+import { Stars, MeshDistortMaterial, Sphere, Float, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { ExternalLink, ChevronLeft, ChevronRight, Cpu, Shield, Container, Brain, X, Search } from 'lucide-react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -19,11 +19,10 @@ const CATEGORY_CONFIG: Record<string, { color: string }> = {
   'General':   { color: '#aaaaaa' },
 };
 
-// ─── 3D Background Scene ──────────────────────────────────────────────────────
-
+// ─── Background ambient orbs (decorative, far away) ───────────────────────────
 function BackgroundOrbs() {
   const orbs = useMemo(() => Array.from({ length: 6 }, (_, i) => ({
-    pos: [(Math.random() - 0.5) * 20, (Math.random() - 0.5) * 10, -8 - Math.random() * 6] as [number, number, number],
+    pos: [(Math.random() - 0.5) * 22, (Math.random() - 0.5) * 12, -10 - Math.random() * 6] as [number, number, number],
     size: 0.4 + Math.random() * 1.2,
     color: ['#00FFC2', '#4040ff', '#CE93D8', '#FF8A65'][i % 4],
     speed: 0.3 + Math.random() * 0.4,
@@ -43,75 +42,17 @@ function BackgroundOrbs() {
   );
 }
 
-// Moons that orbit AROUND the drifting orb on visible elliptical tracks
-function OrbitingMoons({ color, orbPos }: { color: string; orbPos: React.MutableRefObject<THREE.Vector3> }) {
-  const moons = useMemo(() => [
-    { radius: 2.1, tilt: Math.PI / 2.5, tiltZ: 0,    speed: 0.5,  size: 0.08, offset: 0 },
-    { radius: 2.1, tilt: Math.PI / 2.5, tiltZ: 0,    speed: 0.5,  size: 0.05, offset: Math.PI },
-    { radius: 2.6, tilt: Math.PI / 3,   tiltZ: 0.3,  speed: -0.32, size: 0.1,  offset: Math.PI / 2 },
-  ], []);
-
-  return (
-    <>
-      {moons.map((m, i) => (
-        <Moon key={i} {...m} color={color} orbPos={orbPos} />
-      ))}
-    </>
-  );
-}
-
-function Moon({ radius, tilt, tiltZ, speed, size, offset, color, orbPos }: {
-  radius: number; tilt: number; tiltZ: number; speed: number; size: number; offset: number; color: string;
-  orbPos: React.MutableRefObject<THREE.Vector3>;
-}) {
-  const ref = useRef<THREE.Mesh>(null!);
-  const trail = useRef<THREE.Mesh>(null!);
-  useFrame((s) => {
-    if (!ref.current) return;
-    const t = s.clock.getElapsedTime() * speed + offset;
-    const x = Math.cos(t) * radius;
-    const z0 = Math.sin(t) * radius;
-    const y1 = z0 * Math.sin(tilt);
-    const z1 = z0 * Math.cos(tilt);
-    const x2 = x * Math.cos(tiltZ) - y1 * Math.sin(tiltZ);
-    const y2 = x * Math.sin(tiltZ) + y1 * Math.cos(tiltZ);
-    ref.current.position.set(
-      orbPos.current.x + x2,
-      orbPos.current.y + y2,
-      orbPos.current.z + z1
-    );
-  });
-  return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[size, 16, 16]} />
-      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1} roughness={0.2} metalness={0.6} />
-      <pointLight color={color} intensity={0.6} distance={1.8} />
-    </mesh>
-  );
-}
-
-function ActiveOrb({ color, orbPos }: { color: string; orbPos: React.MutableRefObject<THREE.Vector3> }) {
+// ─── Central planet ────────────────────────────────────────────────────────────
+function Planet({ color }: { color: string }) {
   const mesh = useRef<THREE.Mesh>(null!);
-  const group = useRef<THREE.Group>(null!);
   const light = useRef<THREE.PointLight>(null!);
   const targetColor = useMemo(() => new THREE.Color(color), [color]);
   const currentColor = useRef(new THREE.Color(color));
 
   useFrame((s, delta) => {
-    if (!mesh.current || !group.current) return;
-    const t = s.clock.getElapsedTime();
-
-    // Visible orbit path — drifts in a wide circular/figure-8 motion
-    const px = Math.sin(t * 0.18) * 1.8;
-    const py = 0.6 + Math.sin(t * 0.13) * 0.7;
-    const pz = -1.5 + Math.cos(t * 0.18) * 1.2;
-    group.current.position.set(px, py, pz);
-    orbPos.current.set(px, py, pz);
-
-    // Faster self-rotation, clearly visible
-    mesh.current.rotation.y += delta * 0.4;
-    mesh.current.rotation.x += delta * 0.18;
-
+    if (!mesh.current) return;
+    mesh.current.rotation.y += delta * 0.1;
+    mesh.current.rotation.x += delta * 0.04;
     currentColor.current.lerp(targetColor, 0.04);
     (mesh.current.material as any).color.copy(currentColor.current);
     (mesh.current.material as any).emissive.copy(currentColor.current);
@@ -119,83 +60,190 @@ function ActiveOrb({ color, orbPos }: { color: string; orbPos: React.MutableRefO
   });
 
   return (
-    <group ref={group}>
-      <Float speed={2} floatIntensity={1.2} rotationIntensity={0.4}>
-        <Sphere ref={mesh} args={[1.5, 128, 128]}>
-          <MeshDistortMaterial color={color} distort={0.38} speed={1.8} roughness={0.08} metalness={0.9}
-            emissive={color} emissiveIntensity={0.15} />
-        </Sphere>
-        <pointLight ref={light} color={color} intensity={2.5} distance={12} />
-      </Float>
-    </group>
+    <Float speed={0.8} floatIntensity={0.25} rotationIntensity={0.1}>
+      <Sphere ref={mesh} args={[1.1, 128, 128]}>
+        <MeshDistortMaterial color={color} distort={0.3} speed={0.8} roughness={0.08} metalness={0.9}
+          emissive={color} emissiveIntensity={0.18} />
+      </Sphere>
+      <pointLight ref={light} color={color} intensity={2.8} distance={14} />
+    </Float>
   );
 }
 
+// Decorative inner rings close to the planet
 function RingSystem({ color }: { color: string }) {
-  const group = useRef<THREE.Group>(null!);
   const ring1 = useRef<THREE.Mesh>(null!);
   const ring2 = useRef<THREE.Mesh>(null!);
-  const ring3 = useRef<THREE.Mesh>(null!);
-  useFrame((s, d) => {
-    if (!group.current) return;
-    const t = s.clock.getElapsedTime();
-    group.current.position.x = Math.sin(t * 0.18) * 1.8;
-    group.current.position.y = 0.6 + Math.sin(t * 0.13) * 0.7;
-    group.current.position.z = -1.5 + Math.cos(t * 0.18) * 1.2;
-    if (ring1.current) ring1.current.rotation.z += d * 0.25;
-    if (ring2.current) ring2.current.rotation.z -= d * 0.15;
-    if (ring3.current) ring3.current.rotation.z += d * 0.1;
+  useFrame((_, d) => {
+    if (ring1.current) ring1.current.rotation.z += d * 0.15;
+    if (ring2.current) ring2.current.rotation.z -= d * 0.09;
   });
   const c = useMemo(() => new THREE.Color(color), [color]);
   return (
-    <group ref={group}>
+    <>
       <mesh ref={ring1} rotation={[Math.PI / 2.5, 0, 0]}>
-        <torusGeometry args={[2.1, 0.01, 6, 120]} />
-        <meshBasicMaterial color={c} transparent opacity={0.22} />
+        <torusGeometry args={[1.5, 0.006, 6, 120]} />
+        <meshBasicMaterial color={c} transparent opacity={0.18} />
       </mesh>
       <mesh ref={ring2} rotation={[Math.PI / 3, 0.3, 0]}>
-        <torusGeometry args={[2.6, 0.005, 6, 120]} />
-        <meshBasicMaterial color={c} transparent opacity={0.13} />
+        <torusGeometry args={[1.8, 0.004, 6, 120]} />
+        <meshBasicMaterial color={c} transparent opacity={0.1} />
       </mesh>
-      <mesh ref={ring3} rotation={[Math.PI / 2.1, -0.4, 0.2]}>
-        <torusGeometry args={[3.1, 0.004, 6, 120]} />
-        <meshBasicMaterial color={c} transparent opacity={0.08} />
-      </mesh>
+    </>
+  );
+}
+
+// ─── Orbiting article card (HTML mounted in 3D space) ─────────────────────────
+interface OrbitCardProps {
+  article: MockArticle;
+  color: string;
+  baseAngle: number;
+  radius: number;
+  yOffset: number;
+  tilt: number;
+  speedRef: React.MutableRefObject<number>;
+  paused: boolean;
+  isSelected: boolean;
+  onSelect: () => void;
+}
+
+function OrbitCard({ article, color, baseAngle, radius, yOffset, tilt, speedRef, paused, isSelected, onSelect }: OrbitCardProps) {
+  const group = useRef<THREE.Group>(null!);
+  const angleRef = useRef(baseAngle);
+  const [hovered, setHovered] = useState(false);
+  const { camera } = useThree();
+
+  useFrame((s, delta) => {
+    if (!group.current) return;
+    if (!paused && !hovered) {
+      angleRef.current += delta * speedRef.current;
+    }
+    const x = Math.cos(angleRef.current) * radius;
+    const z0 = Math.sin(angleRef.current) * radius;
+    const y = yOffset + z0 * Math.sin(tilt) * 0.35;
+    const z = z0 * Math.cos(tilt);
+    group.current.position.set(x, y, z);
+
+    // Scale by distance from camera (closer = bigger), and fade by depth
+    const dist = camera.position.distanceTo(group.current.position);
+    const scale = THREE.MathUtils.clamp(8 / dist, 0.55, 1.25);
+    group.current.scale.setScalar(scale);
+  });
+
+  const isFront = group.current ? group.current.position.z > 0 : true;
+
+  return (
+    <group ref={group}>
+      <Html
+        center
+        distanceFactor={6}
+        zIndexRange={[10, 0]}
+        occlude={false}
+        style={{ pointerEvents: 'auto' }}
+      >
+        <div
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          onClick={onSelect}
+          className="cursor-pointer select-none"
+          style={{
+            width: 230,
+            opacity: isSelected ? 0 : 1,
+            transition: 'opacity 0.3s ease',
+          }}
+        >
+          <div
+            className="rounded-xl overflow-hidden transition-all duration-300"
+            style={{
+              background: 'rgba(5,7,14,0.85)',
+              border: `1px solid ${hovered ? color : 'rgba(255,255,255,0.1)'}`,
+              boxShadow: hovered ? `0 0 28px ${color}40, 0 12px 32px rgba(0,0,0,0.6)` : '0 4px 16px rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(14px)',
+              transform: hovered ? 'scale(1.08) translateY(-4px)' : 'scale(1)',
+            }}
+          >
+            <div className="h-0.5 w-full" style={{ background: `linear-gradient(to right, ${color}, transparent)`, opacity: hovered ? 1 : 0.35 }} />
+            <div className="p-3.5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border"
+                  style={{ color, borderColor: `${color}40`, background: `${color}10` }}>
+                  {article.category}
+                </span>
+                <span className="text-[7px] font-mono text-white/25">{article.date}</span>
+              </div>
+              <h3 className="text-[11px] font-black leading-snug line-clamp-2"
+                style={{ color: hovered ? color : 'rgba(255,255,255,0.9)' }}>
+                {article.title}
+              </h3>
+            </div>
+          </div>
+        </div>
+      </Html>
     </group>
   );
 }
 
-function CameraRig() {
+function CameraRig({ paused }: { paused: boolean }) {
   const { camera } = useThree();
   useFrame((s) => {
-    const t = s.clock.getElapsedTime() * 0.02;
-    const autoX = Math.sin(t) * 0.6;
-    const autoY = Math.cos(t * 0.6) * 0.25;
-    const tx = s.pointer.x * 0.5 + autoX;
-    const ty = s.pointer.y * 0.3 + autoY;
+    const t = s.clock.getElapsedTime() * (paused ? 0.008 : 0.02);
+    const autoX = Math.sin(t) * 0.8;
+    const autoY = Math.cos(t * 0.6) * 0.3;
+    const tx = s.pointer.x * 0.6 + autoX;
+    const ty = s.pointer.y * 0.35 + autoY;
     camera.position.x += (tx - camera.position.x) * 0.025;
     camera.position.y += (ty - camera.position.y) * 0.025;
-    camera.position.z += (6.5 - camera.position.z) * 0.03;
-    camera.lookAt(0, 0.4, -1.5);
+    camera.position.z += (8.5 - camera.position.z) * 0.025;
+    camera.lookAt(0, 0, 0);
   });
   return null;
 }
 
-// Scene3D
-function Scene3D({ color }: { color: string }) {
-  const orbPos = useRef(new THREE.Vector3(0, 0.6, -1.5));
+function OrbitScene({ articles, color, paused, selectedId, onSelect }: {
+  articles: MockArticle[]; color: string; paused: boolean; selectedId: string | null; onSelect: (a: MockArticle) => void;
+}) {
+  const speedRef = useRef(0.06);
+
+  const cardConfigs = useMemo(() => {
+    const n = articles.length;
+    return articles.map((_, i) => {
+      const ring = i % 3; // distribute across 3 orbit rings
+      const inRingIdx = Math.floor(i / 3);
+      const inRingCount = Math.ceil(n / 3);
+      const baseAngle = (inRingIdx / Math.max(inRingCount, 1)) * Math.PI * 2 + ring * 0.6;
+      const radius = 4.2 + ring * 1.5;
+      const tilt = [Math.PI / 2.5, Math.PI / 3, Math.PI / 2.1][ring];
+      const yOffset = [0, 0.4, -0.3][ring];
+      return { baseAngle, radius, tilt, yOffset };
+    });
+  }, [articles]);
+
   return (
     <>
       <color attach="background" args={['#030508']} />
-      <fog attach="fog" args={['#030508', 14, 38]} />
+      <fog attach="fog" args={['#030508', 16, 42]} />
       <Stars radius={60} depth={40} count={5000} factor={2.5} saturation={0.2} fade speed={0.3} />
       <ambientLight intensity={0.15} />
       <pointLight position={[8, 6, 4]} intensity={0.4} color="#ffffff" />
       <BackgroundOrbs />
-      <ActiveOrb color={color} orbPos={orbPos} />
+      <Planet color={color} />
       <RingSystem color={color} />
-      <OrbitingMoons color={color} orbPos={orbPos} />
-      <CameraRig />
+      {articles.map((article, i) => (
+        <OrbitCard
+          key={article.id}
+          article={article}
+          color={CATEGORY_CONFIG[article.category]?.color || color}
+          baseAngle={cardConfigs[i].baseAngle}
+          radius={cardConfigs[i].radius}
+          yOffset={cardConfigs[i].yOffset}
+          tilt={cardConfigs[i].tilt}
+          speedRef={speedRef}
+          paused={paused}
+          isSelected={selectedId === article.id}
+          onSelect={() => onSelect(article)}
+        />
+      ))}
+      <CameraRig paused={paused} />
     </>
   );
 }
@@ -209,142 +257,12 @@ const CATS = [
   { name: 'Cyber SOC', icon: Shield },
 ];
 
-// ─── Article Card — igloo-style interactive tilt + cursor glow ────────────────
-function ArticleCard({ article, color, isFocused, onClick, style }: {
-  article: MockArticle; color: string; isFocused: boolean; onClick: () => void; style?: React.CSSProperties;
-}) {
-  const cardRef = useRef<HTMLButtonElement>(null);
-  const [hovered, setHovered] = useState(false);
-  const [coords, setCoords] = useState({ x: 140, y: 100 });
-  const rafRef = useRef<number | null>(null);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (typeof window !== 'undefined' && !window.matchMedia('(hover: hover)').matches) return;
-    const card = cardRef.current;
-    if (!card) return;
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      setCoords({ x, y });
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-      const rotateX = -((y - centerY) / centerY) * 8;
-      const rotateY = ((x - centerX) / centerX) * 8;
-      card.style.setProperty('--rx', `${rotateX}deg`);
-      card.style.setProperty('--ry', `${rotateY}deg`);
-    });
-  };
-
-  const handleEnter = () => setHovered(true);
-  const handleLeave = () => {
-    setHovered(false);
-    const card = cardRef.current;
-    if (card) {
-      card.style.setProperty('--rx', '0deg');
-      card.style.setProperty('--ry', '0deg');
-    }
-  };
-
-  const lift = isFocused ? -10 : hovered ? -6 : 0;
-  const scale = isFocused ? 1.03 : hovered ? 1.015 : 1;
-
-  return (
-    <button
-      ref={cardRef}
-      onClick={onClick}
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
-      onMouseMove={handleMouseMove}
-      className="shrink-0 text-left rounded-2xl overflow-hidden relative"
-      style={{
-        width: 280,
-        background: 'rgba(5,7,14,0.82)',
-        border: `1px solid ${isFocused ? color : 'rgba(255,255,255,0.08)'}`,
-        boxShadow: isFocused
-          ? `0 0 36px ${color}35, 0 20px 48px rgba(0,0,0,0.65)`
-          : hovered ? `0 0 24px ${color}25, 0 14px 32px rgba(0,0,0,0.55)` : '0 4px 16px rgba(0,0,0,0.4)',
-        backdropFilter: 'blur(18px)',
-        transform: `perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(${lift}px) scale(${scale})`,
-        transition: hovered
-          ? 'box-shadow 0.25s ease, border-color 0.25s ease'
-          : 'transform 0.5s cubic-bezier(0.16,1,0.3,1), box-shadow 0.4s ease, border-color 0.4s ease',
-        '--rx': '0deg',
-        '--ry': '0deg',
-        ...style,
-      } as React.CSSProperties}
-    >
-      {/* Cursor spotlight glow */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 z-10"
-        style={{
-          opacity: hovered ? 1 : 0,
-          background: `radial-gradient(180px circle at ${coords.x}px ${coords.y}px, ${color}18, transparent 70%)`,
-        }}
-      />
-      {/* Glass shimmer sweep */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-0 z-10"
-        style={{
-          opacity: hovered ? 0.5 : 0,
-          background: `linear-gradient(105deg, transparent 30%, ${color}22 45%, transparent 60%)`,
-          backgroundSize: '250% 250%',
-          backgroundPosition: hovered ? '0% 0%' : '120% 120%',
-          transition: 'background-position 0.8s ease, opacity 0.3s ease',
-        }}
-      />
-      {/* Border glow mask */}
-      <div
-        className="pointer-events-none absolute inset-0 z-[1]"
-        style={{
-          opacity: hovered ? 1 : 0,
-          transition: 'opacity 0.3s ease',
-          background: `radial-gradient(140px circle at ${coords.x}px ${coords.y}px, ${color}50, transparent 80%)`,
-          padding: '1px',
-          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-          WebkitMaskComposite: 'xor',
-          maskComposite: 'exclude',
-        }}
-      />
-
-      <div className="h-0.5 w-full relative z-20" style={{ background: `linear-gradient(to right, ${color}, transparent)`, opacity: isFocused || hovered ? 1 : 0.3 }} />
-      <div className="p-5 relative z-20">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border"
-            style={{ color, borderColor: `${color}40`, background: `${color}10` }}>
-            {article.category}
-          </span>
-          <span className="text-[8px] font-mono text-white/25">{article.date}</span>
-        </div>
-        <h3 className="text-[13px] font-black leading-snug mb-2 line-clamp-2 transition-colors duration-200"
-          style={{ color: isFocused || hovered ? color : 'rgba(255,255,255,0.9)' }}>
-          {article.title}
-        </h3>
-        <p className="text-[10.5px] text-white/35 leading-relaxed line-clamp-2">
-          {article.summary}
-        </p>
-        <div className="mt-3 flex items-center gap-1 text-[8px] font-black uppercase tracking-widest transition-all duration-200"
-          style={{ color: isFocused || hovered ? color : 'rgba(255,255,255,0.25)', gap: hovered ? '6px' : '4px' }}>
-          Read More →
-        </div>
-      </div>
-    </button>
-  );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 function ArticlesContent() {
   const [articles, setArticles] = useState<MockArticle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [focusedIndex, setFocusedIndex] = useState(0);
   const [selected, setSelected] = useState<MockArticle | null>(null);
   const [search, setSearch] = useState('');
-  const [hasEntered, setHasEntered] = useState(false);
-  const [autoRotate, setAutoRotate] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const autoRotateTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const resumeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const cat = searchParams.get('category') || 'all';
@@ -373,14 +291,6 @@ function ArticlesContent() {
     load();
   }, []);
 
-  // Staggered entrance — cards reveal one by one like a carousel intro
-  useEffect(() => {
-    if (!loading && articles.length > 0 && !hasEntered) {
-      const t = setTimeout(() => setHasEntered(true), 100);
-      return () => clearTimeout(t);
-    }
-  }, [loading, articles.length, hasEntered]);
-
   const filtered = useMemo(() => {
     let list = articles;
     if (cat !== 'all') list = list.filter(a => a.category.toLowerCase() === cat.toLowerCase());
@@ -388,100 +298,39 @@ function ArticlesContent() {
       const s = search.toLowerCase();
       list = list.filter(a => a.title.toLowerCase().includes(s));
     }
-    return list;
+    return list.slice(0, 18); // cap for perf — orbiting HTML nodes are expensive
   }, [articles, cat, search]);
 
-  useEffect(() => { setFocusedIndex(0); setSelected(null); if (scrollRef.current) scrollRef.current.scrollLeft = 0; }, [cat, search]);
+  useEffect(() => { setSelected(null); }, [cat, search]);
 
-  const focusedArticle = filtered[focusedIndex] ?? null;
-  const activeColor = focusedArticle ? (CATEGORY_CONFIG[focusedArticle.category]?.color ?? CATEGORY_CONFIG.General.color) : '#00FFC2';
+  const activeColor = selected
+    ? (CATEGORY_CONFIG[selected.category]?.color ?? CATEGORY_CONFIG.General.color)
+    : '#00FFC2';
 
-  const scrollByCards = useCallback((dir: 1 | -1) => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollBy({ left: dir * 300, behavior: 'smooth' });
-  }, []);
-
-  // Track focused card via scroll position
-  const handleScroll = useCallback(() => {
-    if (!scrollRef.current) return;
-    const container = scrollRef.current;
-    const center = container.scrollLeft + container.clientWidth / 2;
-    let closestIdx = 0;
-    let closestDist = Infinity;
-    Array.from(container.children).forEach((child, i) => {
-      const el = child as HTMLElement;
-      const elCenter = el.offsetLeft + el.offsetWidth / 2;
-      const dist = Math.abs(elCenter - center);
-      if (dist < closestDist) { closestDist = dist; closestIdx = i; }
-    });
-    setFocusedIndex(closestIdx);
-  }, []);
-
-  // Pause auto-rotate on any manual interaction, resume after 4s idle
-  const pauseAutoRotate = useCallback(() => {
-    setAutoRotate(false);
-    if (resumeTimeout.current) clearTimeout(resumeTimeout.current);
-    resumeTimeout.current = setTimeout(() => setAutoRotate(true), 4000);
-  }, []);
-
-  const handleManualScroll = useCallback((dir: 1 | -1) => {
-    pauseAutoRotate();
-    scrollByCards(dir);
-  }, [pauseAutoRotate, scrollByCards]);
-
-  // Auto-rotate carousel — slow continuous drift when idle
-  useEffect(() => {
-    if (autoRotateTimer.current) clearInterval(autoRotateTimer.current);
-    if (!autoRotate || !hasEntered || filtered.length <= 1 || selected) return;
-
-    autoRotateTimer.current = setInterval(() => {
-      const container = scrollRef.current;
-      if (!container) return;
-      const maxScroll = container.scrollWidth - container.clientWidth;
-      if (container.scrollLeft >= maxScroll - 5) {
-        container.scrollTo({ left: 0, behavior: 'smooth' });
-      } else {
-        container.scrollBy({ left: 1.2, behavior: 'auto' });
-      }
-    }, 30);
-
-    return () => { if (autoRotateTimer.current) clearInterval(autoRotateTimer.current); };
-  }, [autoRotate, hasEntered, filtered.length, selected]);
-
-  // Resume auto-rotate after closing the article panel
-  useEffect(() => {
-    if (!selected) {
-      if (resumeTimeout.current) clearTimeout(resumeTimeout.current);
-      resumeTimeout.current = setTimeout(() => setAutoRotate(true), 1200);
-    } else {
-      setAutoRotate(false);
-    }
-  }, [selected]);
+  // Orbit pauses fully whenever the detail panel is open
+  const paused = !!selected;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSelected(null);
-      if (e.key === 'ArrowLeft') handleManualScroll(-1);
-      if (e.key === 'ArrowRight') handleManualScroll(1);
-      if (e.key === 'Enter' && focusedArticle) { pauseAutoRotate(); setSelected(focusedArticle); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleManualScroll, focusedArticle, pauseAutoRotate]);
+  }, []);
 
   return (
     <div className="relative w-full bg-[#030508] overflow-hidden select-none" style={{ height: 'calc(100vh - 97px)' }}>
-      {/* 3D backdrop */}
-      <Canvas camera={{ position: [0, 0, 6.5], fov: 55 }} className="absolute inset-0">
+      {/* 3D orbit scene — IS the article browser now */}
+      <Canvas camera={{ position: [0, 0, 8.5], fov: 55 }} className="absolute inset-0">
         <Suspense fallback={null}>
-          <Scene3D color={activeColor} />
+          <OrbitScene articles={filtered} color={activeColor} paused={paused} selectedId={selected?.id ?? null} onSelect={setSelected} />
         </Suspense>
       </Canvas>
 
       {/* radial glow */}
-      <div className="absolute inset-0 z-[1] pointer-events-none flex items-center justify-center" style={{ marginTop: -60 }}>
+      <div className="absolute inset-0 z-[1] pointer-events-none flex items-center justify-center">
         <div className="w-[600px] h-[600px] rounded-full transition-all duration-1000"
-          style={{ background: `radial-gradient(circle, ${activeColor}12 0%, transparent 70%)`, filter: 'blur(50px)' }} />
+          style={{ background: `radial-gradient(circle, ${activeColor}10 0%, transparent 70%)`, filter: 'blur(50px)' }} />
       </div>
 
       {/* HUD top-left */}
@@ -489,11 +338,11 @@ function ArticlesContent() {
         <div className="flex items-center gap-2 mb-1">
           <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: activeColor }} />
           <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: activeColor }}>
-            Transmission Archive
+            Transmission Orbit
           </span>
         </div>
         <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">
-          {loading ? 'Syncing...' : `${filtered.length} transmissions`}
+          {loading ? 'Syncing nodes...' : `${filtered.length} transmissions in orbit`}
         </div>
       </div>
 
@@ -520,66 +369,16 @@ function ArticlesContent() {
         </div>
       </div>
 
-      {/* ── Horizontal scrolling cards — bottom anchored ── */}
-      {!loading && filtered.length > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 z-10 pb-8 pt-24"
-          style={{ background: 'linear-gradient(to top, rgba(3,5,8,0.85) 20%, transparent 100%)' }}>
-          {/* Left/Right arrows */}
-          <button onClick={() => handleManualScroll(-1)}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-            style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${activeColor}30`, backdropFilter: 'blur(10px)', color: activeColor }}>
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button onClick={() => handleManualScroll(1)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-            style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${activeColor}30`, backdropFilter: 'blur(10px)', color: activeColor }}>
-            <ChevronRight className="w-4 h-4" />
-          </button>
-
-          {/* Scrollable row */}
-          <div
-            ref={scrollRef}
-            onScroll={handleScroll}
-            onWheel={pauseAutoRotate}
-            onTouchStart={pauseAutoRotate}
-            className="flex gap-4 overflow-x-auto no-scrollbar px-[calc(50%-140px)] snap-x snap-mandatory pb-2"
-            style={{ scrollBehavior: autoRotate ? 'auto' : 'smooth' }}
-          >
-            {filtered.map((article, i) => {
-              const color = CATEGORY_CONFIG[article.category]?.color || '#fff';
-              return (
-                <div
-                  key={article.id}
-                  className="snap-center"
-                  style={{
-                    opacity: hasEntered ? 1 : 0,
-                    transform: hasEntered ? 'translateY(0px) scale(1)' : 'translateY(40px) scale(0.92)',
-                    transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms`,
-                  }}
-                >
-                  <ArticleCard
-                    article={article}
-                    color={color}
-                    isFocused={i === focusedIndex}
-                    onClick={() => { pauseAutoRotate(); setSelected(article); }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Counter + hint */}
-          <div className="flex items-center justify-center gap-3 mt-4 text-[9px] font-mono text-white/20 uppercase tracking-widest">
-            <span>{focusedIndex + 1} / {filtered.length}</span>
+      {/* Hint — bottom center */}
+      {!selected && !loading && filtered.length > 0 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+          <div className="flex items-center gap-3 text-[9px] font-mono text-white/20 uppercase tracking-widest">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: activeColor }} />
+              Orbiting
+            </span>
             <span className="w-1 h-1 rounded-full bg-white/20" />
-            {autoRotate ? (
-              <span className="flex items-center gap-1.5">
-                <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: activeColor }} />
-                Auto-cycling
-              </span>
-            ) : (
-              <span>← → Scroll · Enter to Open</span>
-            )}
+            <span>Click any node to read</span>
           </div>
         </div>
       )}
