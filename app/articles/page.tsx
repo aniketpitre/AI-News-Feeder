@@ -500,6 +500,8 @@ function ArticlesContent() {
   const isDown = useRef(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, scrollLeft: 0 });
+  const scrollTarget = useRef<number | null>(null);
+  const scrollTween = useRef<number | null>(null);
 
   // Flying Card Animation
   const [flyingCard, setFlyingCard] = useState<{
@@ -646,7 +648,48 @@ function ArticlesContent() {
       }
     }
   }, [isDragging]);
-
+  // Attach native wheel event listener to translate vertical scroll to horizontal scroll with momentum
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    
+    const onWheelNative = (e: WheelEvent) => {
+      pauseAutoRotate();
+      e.preventDefault();
+      
+      if (scrollTarget.current === null) {
+        scrollTarget.current = container.scrollLeft;
+      }
+      
+      scrollTarget.current += e.deltaY * 0.85;
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      scrollTarget.current = Math.max(0, Math.min(scrollTarget.current, maxScroll));
+      
+      const smoothScroll = () => {
+        const c = scrollRef.current;
+        if (!c || scrollTarget.current === null) return;
+        const current = c.scrollLeft;
+        const dist = scrollTarget.current - current;
+        if (Math.abs(dist) > 0.5) {
+          c.scrollLeft += dist * 0.12;
+          scrollTween.current = requestAnimationFrame(smoothScroll);
+        } else {
+          c.scrollLeft = scrollTarget.current;
+          scrollTween.current = null;
+          scrollTarget.current = null;
+        }
+      };
+      
+      if (scrollTween.current) cancelAnimationFrame(scrollTween.current);
+      scrollTween.current = requestAnimationFrame(smoothScroll);
+    };
+    
+    container.addEventListener('wheel', onWheelNative, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', onWheelNative);
+      if (scrollTween.current) cancelAnimationFrame(scrollTween.current);
+    };
+  }, [pauseAutoRotate, carouselArticles.length]);
   const handleCloseDetail = useCallback(() => {
     if (!selected) return;
     const closedId = selected.id;
@@ -804,7 +847,6 @@ function ArticlesContent() {
           <div
             ref={scrollRef}
             onScroll={handleScroll}
-            onWheel={pauseAutoRotate}
             onTouchStart={pauseAutoRotate}
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
