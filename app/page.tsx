@@ -213,6 +213,17 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // ── Fix: prevent browser from restoring a mid-page scroll position on reload ──
+  // Without this, the browser scroll-restoration API returns users to wherever
+  // they were last time, which causes the 3D shard to start mid-descent and
+  // the page to visually "open below" the hero.
+  useEffect(() => {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+    window.scrollTo(0, 0);
+  }, []);
+
   useEffect(() => {
     async function fetchHomeArticles() {
       try {
