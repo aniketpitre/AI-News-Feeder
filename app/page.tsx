@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, Suspense } from 'react';
+import { useRef, useState, useEffect, useCallback, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { ArrowRight, Cpu, Shield, Container, Brain, ArrowUpRight } from 'lucide-react';
 import { TextScramble } from '@/components/ui/TextScramble';
@@ -54,28 +54,52 @@ function WaypointSection({
   if (isHero) {
     return (
       <section data-waypoint-section className="relative w-full h-[100vh] min-h-[640px] flex flex-col items-center justify-center px-6 text-center pointer-events-none">
-        <RevealOnScroll delay={200}>
+        <div
+          style={{
+            opacity: 0,
+            transform: 'translateY(20px)',
+            animation: 'heroTextReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 1.8s forwards',
+          }}
+        >
           <span className="mb-4 inline-flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest text-[#00FFC2] backdrop-blur-sm">
             <span className="w-1.5 h-1.5 bg-[#00FFC2] rounded-full animate-pulse" />
             Live Network Feed
           </span>
-        </RevealOnScroll>
-        <RevealOnScroll delay={400}>
+        </div>
+        <div
+          style={{
+            opacity: 0,
+            transform: 'translateY(20px)',
+            animation: 'heroTextReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 2.1s forwards',
+          }}
+        >
           <h1 className="font-mono text-4xl sm:text-7xl md:text-8xl font-black tracking-tighter leading-[0.95] select-none text-white">
             <TextScramble text="TECH_SYNC" trigger="both" />
             <span className="text-[#00FFC2]">.</span>
           </h1>
-        </RevealOnScroll>
-        <RevealOnScroll delay={600}>
+        </div>
+        <div
+          style={{
+            opacity: 0,
+            transform: 'translateY(20px)',
+            animation: 'heroTextReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 2.4s forwards',
+          }}
+        >
           <p className="mt-6 max-w-xl text-xs sm:text-sm md:text-base text-white/50 uppercase tracking-widest font-medium">
             Signal from the edge — DevOps, Kubernetes, AI/ML &amp; Cyber Security, curated in real time.
           </p>
-        </RevealOnScroll>
-        <RevealOnScroll delay={900}>
+        </div>
+        <div
+          style={{
+            opacity: 0,
+            transform: 'translateY(20px)',
+            animation: 'heroTextReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 2.8s forwards',
+          }}
+        >
           <div className="mt-10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white/40 animate-bounce">
             Scroll to descend <ArrowRight className="w-3 h-3 rotate-90" />
           </div>
-        </RevealOnScroll>
+        </div>
       </section>
     );
   }
@@ -210,18 +234,30 @@ function WaypointSection({
 function HomeContent() {
   const [articles, setArticles] = useState<any[]>(mockArticles);
   const [selectedArticle, setSelectedArticle] = useState<ArticlePanelData | null>(null);
+  const [introComplete, setIntroComplete] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // ── Fix: prevent browser from restoring a mid-page scroll position on reload ──
-  // Without this, the browser scroll-restoration API returns users to wherever
-  // they were last time, which causes the 3D shard to start mid-descent and
-  // the page to visually "open below" the hero.
   useEffect(() => {
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual';
     }
     window.scrollTo(0, 0);
+  }, []);
+
+  // ── Track intro completion: preloader done + 1.5s orb reveal ──
+  useEffect(() => {
+    const onPreloaderDone = () => {
+      setTimeout(() => setIntroComplete(true), 1600);
+    };
+    window.addEventListener('preloader-done', onPreloaderDone);
+    // Fallback
+    const fallback = setTimeout(() => setIntroComplete(true), 3500);
+    return () => {
+      window.removeEventListener('preloader-done', onPreloaderDone);
+      clearTimeout(fallback);
+    };
   }, []);
 
   useEffect(() => {

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { Suspense, useRef, useMemo, useState } from 'react';
+import React, { Suspense, useRef, useMemo, useState, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Stars, Environment, MeshTransmissionMaterial } from '@react-three/drei';
+import { Stars, Environment, MeshTransmissionMaterial, Html } from '@react-three/drei';
 import * as THREE from 'three';
 
 /* ───────────────────────────────────────────────────────────
@@ -55,19 +55,330 @@ function buildCrystalGeometry(shape: string, seed: number): THREE.BufferGeometry
 }
 
 /* ───────────────────────────────────────────────────────────
-   The shard — igloo.inc-style interactive crystal.
+   Shattered Fragments — broken pieces of the crystal that
+   float apart at hero and assemble into the orb as user
+   scrolls (igloo.inc-inspired reveal).
+
+   Each fragment is a small crystal shard with glassy material.
+   At scroll=0 they're scattered; at scroll ~0.10 they've
+   fully converged to center, and the main orb takes over.
+   ─────────────────────────────────────────────────────────── */
+const FRAGMENT_COUNT = 10;
+const ASSEMBLY_END = 0.08; // scroll progress at which fragments fully assemble
+
+function ShatteredFragments({ scrollProgressRef, introProgress }: {
+  scrollProgressRef: React.MutableRefObject<number>;
+  introProgress: React.MutableRefObject<number>;
+}) {
+  const groupRef = useRef<THREE.Group>(null!);
+
+  // Pre-calculate fragment data: scattered position, rotation, scale, geometry
+  const fragments = useMemo(() => {
+    const seed = (i: number) => {
+      let s = i * 7919 + 31;
+      const r = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+      return r;
+    };
+
+    return Array.from({ length: FRAGMENT_COUNT }, (_, i) => {
+      const r = seed(i);
+      // Scattered positions — spread in a sphere around center
+      const theta = r() * Math.PI * 2;
+      const phi   = Math.acos(2 * r() - 1);
+      const radius = 2.5 + r() * 3.0;
+      const scatteredPos: [number, number, number] = [
+        Math.sin(phi) * Math.cos(theta) * radius,
+        Math.sin(phi) * Math.sin(theta) * radius,
+        Math.cos(phi) * radius * 0.6,
+      ];
+      // Random rotation for scattered state
+      const scatteredRot: [number, number, number] = [
+        r() * Math.PI * 2,
+        r() * Math.PI * 2,
+        r() * Math.PI * 2,
+      ];
+      // Fragment size (smaller shards)
+      const scale = 0.25 + r() * 0.35;
+      // Shape variety
+      const shapes: THREE.BufferGeometry[] = [
+        new THREE.TetrahedronGeometry(1, 0),
+        new THREE.OctahedronGeometry(1, 0),
+        new THREE.IcosahedronGeometry(1, 0),
+      ];
+      const geom = shapes[i % shapes.length];
+      // Speed multiplier for floating animation
+      const floatSpeed = 0.3 + r() * 0.6;
+      const floatOffset = r() * Math.PI * 2;
+
+      return { scatteredPos, scatteredRot, scale, geom, floatSpeed, floatOffset };
+    });
+  }, []);
+
+  useFrame((state) => {
+    if (!groupRef.current) return;
+    const t = state.clock.getElapsedTime();
+    const scroll = scrollProgressRef.current;
+    const intro = introProgress.current;
+
+    // Assembly progress: 0 = fully scattered, 1 = fully assembled
+    const assemblyT = Math.min(scroll / ASSEMBLY_END, 1);
+    // Smooth ease-in-out
+    const eased = assemblyT < 0.5
+      ? 4 * assemblyT * assemblyT * assemblyT
+      : 1 - Math.pow(-2 * assemblyT + 2, 3) / 2;
+
+    // Fade out fragments as they assemble (opacity → 0 at full assembly)
+    const fragOpacity = Math.max(0, 1 - eased * 1.2); // fade a bit before fully assembled
+
+    groupRef.current.children.forEach((child, i) => {
+      const frag = fragments[i];
+      if (!frag) return;
+
+      const meshChild = child as THREE.Mesh;
+
+      // Lerp position from scattered → center (0,0,0)
+      meshChild.position.x = frag.scatteredPos[0] * (1 - eased) + Math.sin(t * frag.floatSpeed + frag.floatOffset) * 0.15 * (1 - eased);
+      meshChild.position.y = frag.scatteredPos[1] * (1 - eased) + Math.cos(t * frag.floatSpeed * 0.7 + frag.floatOffset) * 0.1 * (1 - eased);
+      meshChild.position.z = frag.scatteredPos[2] * (1 - eased);
+
+      // Rotation: scatter rotation → converge to 0
+      meshChild.rotation.x = frag.scatteredRot[0] * (1 - eased) + t * 0.2 * (1 - eased);
+      meshChild.rotation.y = frag.scatteredRot[1] * (1 - eased) + t * 0.15 * (1 - eased);
+      meshChild.rotation.z = frag.scatteredRot[2] * (1 - eased);
+
+      // Scale: appear with intro, shrink as they assemble
+      const baseScale = frag.scale * intro;
+      meshChild.scale.setScalar(baseScale * Math.max(0.1, 1 - eased * 0.8));
+
+      // Opacity
+      const mat = meshChild.material as THREE.MeshPhysicalMaterial;
+      if (mat) mat.opacity = fragOpacity * intro;
+    });
+
+    // Follow shard group position when scrolled
+    if (scroll > ASSEMBLY_END) {
+      groupRef.current.visible = false;
+    } else {
+      groupRef.current.visible = true;
+      // Position at shard's hero position
+      groupRef.current.position.y = 1.2;
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      {fragments.map((frag, i) => (
+        <mesh key={i} geometry={frag.geom}>
+          <meshPhysicalMaterial
+            color="#00FFC2"
+            emissive="#00FFC2"
+            emissiveIntensity={0.15}
+            roughness={0.05}
+            metalness={0.1}
+            transmission={0.85}
+            thickness={0.8}
+            ior={1.4}
+            transparent
+            opacity={0.7}
+            clearcoat={1}
+            clearcoatRoughness={0.1}
+            envMapIntensity={1.5}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/* ───────────────────────────────────────────────────────────
+   Floating Data Metrics — igloo-style floating labels that
+   orbit the shard during hero, showing live-feel stats.
+   ─────────────────────────────────────────────────────────── */
+const METRICS = [
+  { label: 'FEEDS',    value: '4',      offset: 0 },
+  { label: 'UPTIME',   value: '99.9%',  offset: Math.PI * 0.5 },
+  { label: 'LATENCY',  value: '12ms',   offset: Math.PI },
+  { label: 'ARTICLES', value: '128',    offset: Math.PI * 1.5 },
+];
+
+function FloatingMetrics({ scrollProgressRef }: { scrollProgressRef: React.MutableRefObject<number> }) {
+  const groupRef = useRef<THREE.Group>(null!);
+
+  useFrame((state) => {
+    if (!groupRef.current) return;
+    const isHero = scrollProgressRef.current < 0.12;
+    const t = state.clock.getElapsedTime();
+
+    // Fade the whole group in/out based on hero
+    const targetOpacity = isHero ? 1 : 0;
+    groupRef.current.visible = isHero || groupRef.current.children.some(c => (c as any).currentOpacity > 0.01);
+
+    groupRef.current.children.forEach((child, i) => {
+      const metric = METRICS[i];
+      const angle = t * 0.3 + metric.offset;
+      const radius = 2.8;
+
+      child.position.x = Math.cos(angle) * radius;
+      child.position.z = Math.sin(angle) * radius;
+      child.position.y = Math.sin(t * 0.6 + i * 1.2) * 0.3;
+
+      // Smooth opacity
+      const current = (child as any).currentOpacity ?? 0;
+      const next = current + (targetOpacity - current) * 0.06;
+      (child as any).currentOpacity = next;
+    });
+  });
+
+  return (
+    <group ref={groupRef}>
+      {METRICS.map((metric, i) => (
+        <Html
+          key={metric.label}
+          center
+          distanceFactor={8}
+          style={{
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          <div
+            style={{
+              background: 'rgba(0, 255, 194, 0.06)',
+              border: '1px solid rgba(0, 255, 194, 0.2)',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '2px',
+              animation: `metricFadeIn 0.8s ease-out ${i * 0.15 + 0.3}s both`,
+            }}
+          >
+            <span style={{
+              fontSize: '8px',
+              fontFamily: 'monospace',
+              fontWeight: 700,
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              color: 'rgba(255, 255, 255, 0.35)',
+            }}>
+              {metric.label}
+            </span>
+            <span style={{
+              fontSize: '16px',
+              fontFamily: 'monospace',
+              fontWeight: 900,
+              color: '#00FFC2',
+              textShadow: '0 0 12px rgba(0, 255, 194, 0.5)',
+            }}>
+              {metric.value}
+            </span>
+          </div>
+        </Html>
+      ))}
+    </group>
+  );
+}
+
+/* ───────────────────────────────────────────────────────────
+   Data Particle Field — rising particles around shard (hero)
+   ─────────────────────────────────────────────────────────── */
+function DataParticles({ scrollProgressRef }: { scrollProgressRef: React.MutableRefObject<number> }) {
+  const pointsRef = useRef<THREE.Points>(null!);
+  const count = 200;
+
+  const { positions, velocities } = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    const vel = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3]     = (Math.random() - 0.5) * 10;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 10;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 6;
+      vel[i * 3]     = (Math.random() - 0.5) * 0.002;
+      vel[i * 3 + 1] = 0.003 + Math.random() * 0.005; // rising
+      vel[i * 3 + 2] = (Math.random() - 0.5) * 0.002;
+    }
+    return { positions: pos, velocities: vel };
+  }, []);
+
+  useFrame((state) => {
+    if (!pointsRef.current) return;
+    const isHero = scrollProgressRef.current < 0.15;
+
+    // Fade particles
+    const mat = pointsRef.current.material as THREE.PointsMaterial;
+    const targetOpacity = isHero ? 0.6 : 0;
+    mat.opacity += (targetOpacity - mat.opacity) * 0.05;
+
+    if (!isHero && mat.opacity < 0.01) return;
+
+    const posAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
+    const arr = posAttr.array as Float32Array;
+
+    // Mouse attraction
+    const mx = state.pointer.x * 3;
+    const my = state.pointer.y * 3;
+
+    for (let i = 0; i < count; i++) {
+      const ix = i * 3;
+      arr[ix]     += velocities[ix];
+      arr[ix + 1] += velocities[ix + 1];
+      arr[ix + 2] += velocities[ix + 2];
+
+      // Slight attraction toward mouse position
+      arr[ix]     += (mx - arr[ix]) * 0.0003;
+      arr[ix + 1] += (my - arr[ix + 1]) * 0.0003;
+
+      // Reset if out of bounds
+      if (arr[ix + 1] > 5) {
+        arr[ix + 1] = -5;
+        arr[ix] = (Math.random() - 0.5) * 10;
+        arr[ix + 2] = (Math.random() - 0.5) * 6;
+      }
+    }
+    posAttr.needsUpdate = true;
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          args={[positions, 3]}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        color="#00FFC2"
+        size={0.03}
+        transparent
+        opacity={0}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+        sizeAttenuation
+      />
+    </points>
+  );
+}
+
+/* ───────────────────────────────────────────────────────────
+   The shard — glassy crystal orb.
 
    At hero (scrollProgress < ~0.12):
-   • Tracks the pointer with a soft rotation lag (looks AT you)
+   • Starts small (hidden behind fragments) and grows as
+     fragments assemble
+   • Tracks the pointer with a soft rotation lag
    • Magnetically drifts position slightly toward cursor
    • Breathes with a gentle scale pulse
    • Click triggers a heartbeat expand+contract
-   • Pointer proximity intensifies the inner glow and distortion
 
    Past hero:
-   • Switches back to scroll-driven descent/rotation
+   • Full glassy orb — scroll-driven descent/rotation
    ─────────────────────────────────────────────────────────── */
-function Shard({ scrollProgressRef }: { scrollProgressRef: React.MutableRefObject<number> }) {
+function Shard({ scrollProgressRef, introProgress }: {
+  scrollProgressRef: React.MutableRefObject<number>;
+  introProgress: React.MutableRefObject<number>;
+}) {
   const group        = useRef<THREE.Group>(null!);
   const mesh         = useRef<THREE.Mesh>(null!);
   const matRef       = useRef<any>(null!);
@@ -97,6 +408,13 @@ function Shard({ scrollProgressRef }: { scrollProgressRef: React.MutableRefObjec
     const idx     = Math.min(Math.floor(p), n - 2);
     const localT  = p - idx;
     const isHero  = scrollProgressRef.current < 0.12;
+    const intro   = introProgress.current;
+
+    // ── Assembly progress: orb grows as fragments converge ──
+    const assemblyT = Math.min(scrollProgressRef.current / ASSEMBLY_END, 1);
+    const assemblyEased = assemblyT < 0.5
+      ? 4 * assemblyT * assemblyT * assemblyT
+      : 1 - Math.pow(-2 * assemblyT + 2, 3) / 2;
 
     // ── Geometry swap at midpoint crossing ──
     const nearestIdx = localT < 0.5 ? idx : idx + 1;
@@ -137,23 +455,24 @@ function Shard({ scrollProgressRef }: { scrollProgressRef: React.MutableRefObjec
       auroraRef.current.lookAt(state.camera.position);
     }
 
-    // ── Pointer-reactive distortion (hero only) ──
+    // ── Pointer-reactive distortion (hero only, kept subtle for glassy look) ──
     if (matRef.current && isHero) {
       const dist = Math.sqrt(state.pointer.x ** 2 + state.pointer.y ** 2);
-      // closer to center = more distortion, makes it feel "aware"
-      matRef.current.distortion = 0.15 + (1 - Math.min(dist, 1)) * 0.35 + clickPulse.current * 0.4;
-      matRef.current.distortionScale = 0.4 + hoverIntensity.current * 0.3;
+      const proximity = 1 - Math.min(dist, 1);
+      // Keep distortion subtle so the glassy transmission look shines through
+      matRef.current.distortion = 0.15 + proximity * 0.2 + clickPulse.current * 0.3;
+      matRef.current.distortionScale = 0.4 + hoverIntensity.current * 0.2;
+      matRef.current.chromaticAberration = 0.04 + proximity * 0.06;
     } else if (matRef.current) {
       matRef.current.distortion      = 0.15;
       matRef.current.distortionScale = 0.4;
+      matRef.current.chromaticAberration = 0.04;
     }
 
     // ── Position / rotation ──
     if (group.current) {
       if (isHero) {
         // ─ HERO MODE: crystal tracks pointer magnetically ─
-
-        // Smooth targets
         pointerTarget.current.rx += (state.pointer.y * -0.5 - pointerTarget.current.rx) * 0.055;
         pointerTarget.current.ry += (state.pointer.x *  0.7 - pointerTarget.current.ry) * 0.055;
         pointerTarget.current.px += (state.pointer.x *  0.25 - pointerTarget.current.px) * 0.04;
@@ -180,13 +499,17 @@ function Shard({ scrollProgressRef }: { scrollProgressRef: React.MutableRefObjec
       }
     }
 
-    // ── Mesh-level animation: breathing scale + click heartbeat ──
+    // ── Mesh-level animation: assembly reveal + breathing + click heartbeat ──
     if (mesh.current) {
       const breathe    = 1 + Math.sin(t * 0.85) * 0.025;
       const clickScale = 1 + clickPulse.current * 0.28;
-      mesh.current.scale.setScalar(breathe * clickScale);
 
-      // Ambient self-spin (kept outside hero pointer-tracking so it layers on top)
+      // Orb starts small (0.15) and grows to full size as fragments assemble
+      // After assembly is done, it's full scale
+      const assemblyScale = isHero ? 0.15 + assemblyEased * 0.85 : 1;
+      mesh.current.scale.setScalar(breathe * clickScale * assemblyScale * intro);
+
+      // Ambient self-spin
       if (!isHero) {
         mesh.current.rotation.y += delta * 0.08 + hoverIntensity.current * delta * 0.3;
       } else {
@@ -286,25 +609,34 @@ function AmbientFragments({ scrollProgressRef }: { scrollProgressRef: React.Muta
 }
 
 /* ───────────────────────────────────────────────────────────
-   Camera rig — at hero, amplified pointer parallax so the
-   scene feels more alive; past hero, standard drift.
+   Camera rig — at hero, amplified pointer parallax;
+   past hero, standard drift.
    ─────────────────────────────────────────────────────────── */
-function CameraRig({ scrollProgressRef }: { scrollProgressRef: React.MutableRefObject<number> }) {
+function CameraRig({ scrollProgressRef, introProgress }: {
+  scrollProgressRef: React.MutableRefObject<number>;
+  introProgress: React.MutableRefObject<number>;
+}) {
   const { camera } = useThree();
 
   useFrame((state) => {
     const t      = state.clock.getElapsedTime() * 0.02;
     const autoX  = Math.sin(t) * 0.4;
     const isHero = scrollProgressRef.current < 0.12;
+    const intro  = introProgress.current;
 
     // At hero, camera has a wider parallax range so the 3D depth is obvious
     const sensitivity = isHero ? 1.4 : 0.6;
     const tx = state.pointer.x * sensitivity + autoX;
     const ty = state.pointer.y * (isHero ? 0.6 : 0.3);
 
+    // Cinematic intro: camera starts slightly closer (z=5) and pulls back to z=7
+    const zTarget = 7;
+    const introZ = isHero ? 5 + intro * 2 : zTarget;
+    const finalZ = isHero && intro < 0.99 ? introZ : zTarget;
+
     camera.position.x += (tx - camera.position.x) * 0.025;
     camera.position.y += (ty - camera.position.y) * 0.025;
-    camera.position.z += (7   - camera.position.z) * 0.03;
+    camera.position.z += (finalZ - camera.position.z) * 0.03;
 
     const n           = WAYPOINTS.length;
     const totalDescent = (n - 1) * 2.4;
@@ -320,14 +652,48 @@ function CameraRig({ scrollProgressRef }: { scrollProgressRef: React.MutableRefO
    ─────────────────────────────────────────────────────────── */
 function SceneContents() {
   const scrollProgressRef = useRef(0);
+  const introProgress = useRef(0);
+  const introStarted = useRef(false);
+  const introStartTime = useRef(0);
+
+  useEffect(() => {
+    const onPreloaderDone = () => {
+      introStarted.current = true;
+      introStartTime.current = performance.now();
+    };
+    window.addEventListener('preloader-done', onPreloaderDone);
+
+    // Fallback if preloader-done never fires
+    const fallback = setTimeout(() => {
+      if (!introStarted.current) {
+        introStarted.current = true;
+        introStartTime.current = performance.now();
+      }
+    }, 2500);
+
+    return () => {
+      window.removeEventListener('preloader-done', onPreloaderDone);
+      clearTimeout(fallback);
+    };
+  }, []);
 
   useFrame(() => {
     if (typeof window === 'undefined') return;
+
+    // Scroll progress
     const scrollY   = window.scrollY;
     const docHeight = document.documentElement.scrollHeight - window.innerHeight;
     scrollProgressRef.current = docHeight > 0
       ? Math.min(Math.max(scrollY / docHeight, 0), 1)
       : 0;
+
+    // Intro animation: 0 → 1 over ~1.5s with ease-out
+    if (introStarted.current) {
+      const elapsed = (performance.now() - introStartTime.current) / 1500; // 1.5s
+      const raw = Math.min(elapsed, 1);
+      // Ease-out cubic
+      introProgress.current = 1 - Math.pow(1 - raw, 3);
+    }
   });
 
   return (
@@ -339,9 +705,12 @@ function SceneContents() {
       <directionalLight position={[4, 6, 5]}    intensity={1.1} color="#ffffff" />
       <directionalLight position={[-4, -3, -3]} intensity={0.3} color="#4FC3F7" />
       <Environment preset="city" />
-      <Shard            scrollProgressRef={scrollProgressRef} />
-      <AmbientFragments scrollProgressRef={scrollProgressRef} />
-      <CameraRig        scrollProgressRef={scrollProgressRef} />
+      <ShatteredFragments scrollProgressRef={scrollProgressRef} introProgress={introProgress} />
+      <Shard              scrollProgressRef={scrollProgressRef} introProgress={introProgress} />
+      <FloatingMetrics    scrollProgressRef={scrollProgressRef} />
+      <DataParticles      scrollProgressRef={scrollProgressRef} />
+      <AmbientFragments   scrollProgressRef={scrollProgressRef} />
+      <CameraRig          scrollProgressRef={scrollProgressRef} introProgress={introProgress} />
     </>
   );
 }
@@ -358,6 +727,13 @@ export default function IcebergScene() {
           <SceneContents />
         </Suspense>
       </Canvas>
+      {/* Inject keyframe for floating metric fade-in */}
+      <style>{`
+        @keyframes metricFadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }

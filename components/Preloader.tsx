@@ -7,6 +7,20 @@ export function Preloader() {
   const [visible, setVisible] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
 
+  // Lock scroll and force top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.body.style.overflow = 'hidden';
+
+    // Stop Lenis if it exists
+    const lenis = (window as any).lenis;
+    if (lenis && typeof lenis.stop === 'function') lenis.stop();
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
   useEffect(() => {
     // Simulate loading progress
     const interval = setInterval(() => {
@@ -27,7 +41,16 @@ export function Preloader() {
   useEffect(() => {
     if (progress >= 100) {
       const timeout = setTimeout(() => setFadeOut(true), 300);
-      const hide = setTimeout(() => setVisible(false), 1100);
+      const hide = setTimeout(() => {
+        setVisible(false);
+        // Unlock scroll
+        document.body.style.overflow = '';
+        // Restart Lenis if it exists
+        const lenis = (window as any).lenis;
+        if (lenis && typeof lenis.start === 'function') lenis.start();
+        // Signal that preloader is done so other components can react
+        window.dispatchEvent(new CustomEvent('preloader-done'));
+      }, 1100);
       return () => { clearTimeout(timeout); clearTimeout(hide); };
     }
   }, [progress]);
