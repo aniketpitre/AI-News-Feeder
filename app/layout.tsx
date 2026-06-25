@@ -4,7 +4,6 @@ import { Navigation }     from '@/components/Navigation';
 import { TickerBar }      from '@/components/TickerBar';
 import { SmoothScroll }   from '@/components/SmoothScroll';
 import { ScrollProgress } from '@/components/ScrollProgress';
-import { CustomCursor }   from '@/components/CustomCursor';
 import { PageTransition } from '@/components/PageTransition';
 import { Suspense }       from 'react';
 import { Inter, IBM_Plex_Mono } from 'next/font/google';
@@ -32,24 +31,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className={`${inter.variable} ${mono.variable} min-h-screen bg-[#050505] text-white flex flex-col font-sans`}
         suppressHydrationWarning
       >
-        {/* Lenis smooth scroll initialiser */}
         <SmoothScroll />
-
-        {/* Thin teal scroll-progress bar at very top */}
         <ScrollProgress />
-
-        {/* igloo.inc-style magnetic cursor — renders nothing on touch devices */}
-        <CustomCursor />
-
-        {/* Frost-dissolve overlay that fires on every Next.js route change */}
         <PageTransition />
 
-        {/* Live headline ticker */}
         <Suspense fallback={<div className="h-8 bg-[#00FFC2]" />}>
           <TickerBar />
         </Suspense>
 
-        {/* Main navigation */}
         <Suspense fallback={<div className="h-[65px] bg-[#050505] border-b border-white/10" />}>
           <Navigation />
         </Suspense>

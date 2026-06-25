@@ -3,162 +3,211 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { TextScramble } from './ui/TextScramble';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Zap } from 'lucide-react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
+const CAT_COLORS: Record<string, string> = {
+  devops:    '#4FC3F7',
+  k8s:       '#00FFC2',
+  'ai/ml':   '#CE93D8',
+  'cyber soc': '#FF8A65',
+  all:       '#00FFC2',
+  articles:  '#00FFC2',
+};
+
 export function Navigation() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen,   setIsOpen]   = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [hidden, setHidden] = useState(false);
+  const [hidden,   setHidden]   = useState(false);
   const lastScrollY = useRef(0);
-  const pathname = usePathname();
+  const pathname    = usePathname();
   const searchParams = useSearchParams();
 
-  const activeCategory = searchParams.get('category') || 'all';
-  const isArticlesPage = pathname.startsWith('/articles');
-  const basePath = isArticlesPage ? '/articles' : '/';
+  const activeCategory  = searchParams.get('category') || 'all';
+  const isArticlesPage  = pathname.startsWith('/articles');
+  const basePath        = isArticlesPage ? '/articles' : '/';
+  const activeCatLower  = isArticlesPage ? 'articles' : activeCategory.toLowerCase();
+  const activeColor     = CAT_COLORS[activeCatLower] || '#00FFC2';
 
-  // Scroll-aware: transparent at top, glassmorphic on scroll, hide on scroll-down
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY;
       setScrolled(y > 80);
-      if (y > lastScrollY.current && y > 200) {
-        setHidden(true);
-      } else {
-        setHidden(false);
-      }
+      setHidden(y > lastScrollY.current && y > 200);
       lastScrollY.current = y;
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const toggleMenu = () => setIsOpen(!isOpen);
-
-  const getLinkClass = (category: string) => {
-    const isActive = activeCategory.toLowerCase() === category.toLowerCase();
-    // Special condition: if the user highlights Articles itself, highlight it
-    if (category === 'articles') {
-      return isArticlesPage 
-        ? "text-[#00FFC2] font-black tracking-widest pb-1 border-b-2 border-[#00FFC2]" 
-        : "hover:text-white transition-colors pb-1";
-    }
-    return isActive
-      ? "text-[#00FFC2] font-black tracking-widest pb-1 border-b-2 border-[#00FFC2]"
-      : "hover:text-white transition-colors pb-1";
-  };
+  const isActive = (cat: string) =>
+    cat === 'articles'
+      ? isArticlesPage
+      : activeCategory.toLowerCase() === cat.toLowerCase();
 
   return (
     <>
       <nav
-        className="flex items-center justify-between px-6 md:px-8 py-4 shrink-0 sticky top-0 z-50 transition-all duration-500"
+        className="flex items-center justify-between px-6 md:px-10 shrink-0 sticky top-0 z-50 transition-all duration-500"
         style={{
-          background: scrolled ? 'rgba(5,5,5,0.85)' : 'transparent',
-          backdropFilter: scrolled ? 'blur(16px)' : 'none',
-          borderBottom: scrolled ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
+          height: scrolled ? 56 : 65,
+          background: scrolled
+            ? 'rgba(4, 5, 10, 0.88)'
+            : 'transparent',
+          backdropFilter: scrolled ? 'blur(22px) saturate(1.6)' : 'none',
+          borderBottom: scrolled
+            ? `1px solid rgba(255,255,255,0.07)`
+            : '1px solid transparent',
+          /* Thin gradient glow line under nav when scrolled */
+          boxShadow: scrolled
+            ? `0 1px 0 0 ${activeColor}22, 0 4px 24px rgba(0,0,0,0.4)`
+            : 'none',
           transform: hidden ? 'translateY(-100%)' : 'translateY(0)',
         }}
       >
+        {/* Left: logo + links */}
         <div className="flex items-center gap-8">
+
+          {/* Logo */}
           <Link
             href="/"
-            className="text-xl md:text-2xl font-black tracking-tighter text-[#00FFC2] hover:drop-shadow-[0_0_12px_#00FFC2] transition-all duration-300 hover:scale-105"
             onClick={() => setIsOpen(false)}
+            className="flex items-center gap-1.5 group"
           >
-            <TextScramble text="TECH_SYNC" trigger="both" />
-            <span className="text-white">.</span>
+            <span
+              className="text-xl md:text-2xl font-black tracking-tighter transition-all duration-300"
+              style={{
+                color: '#00FFC2',
+                textShadow: '0 0 18px rgba(0,255,194,0.35)',
+              }}
+            >
+              <TextScramble text="TECH_SYNC" trigger="both" />
+            </span>
+            <span className="text-xl md:text-2xl font-black tracking-tighter text-white/60 group-hover:text-white transition-colors">.</span>
           </Link>
-          
-          {/* Desktop Links */}
-          <div className="hidden md:flex gap-6 text-[10px] font-mono font-medium text-white/60 uppercase tracking-[0.18em]">
-            <Link href={`${basePath}?category=all`} className={getLinkClass('all')}>
-              <TextScramble text="Network" trigger="hover" />
-            </Link>
-            <Link href={`${basePath}?category=DevOps`} className={getLinkClass('DevOps')}>
-              <TextScramble text="DevOps" trigger="hover" />
-            </Link>
-            <Link href={`${basePath}?category=K8s`} className={getLinkClass('K8s')}>
-              <TextScramble text="K8s" trigger="hover" />
-            </Link>
-            <Link href={`${basePath}?category=AI/ML`} className={getLinkClass('AI/ML')}>
-              <TextScramble text="AI/ML" trigger="hover" />
-            </Link>
-            <Link href={`${basePath}?category=Cyber SOC`} className={getLinkClass('Cyber SOC')}>
-              <TextScramble text="Cyber SOC" trigger="hover" />
-            </Link>
-            <Link href="/articles" className={getLinkClass('articles') + " ml-4"}>
-              <TextScramble text="Articles" trigger="hover" />
-            </Link>
+
+          {/* Desktop nav links */}
+          <div className="hidden md:flex items-center gap-1 text-[10px] font-mono font-semibold uppercase tracking-[0.18em]">
+            {[
+              { label: 'Network',   href: `${basePath}?category=all`,       cat: 'all'        },
+              { label: 'DevOps',    href: `${basePath}?category=DevOps`,     cat: 'DevOps'     },
+              { label: 'K8s',       href: `${basePath}?category=K8s`,        cat: 'K8s'        },
+              { label: 'AI/ML',     href: `${basePath}?category=AI/ML`,      cat: 'AI/ML'      },
+              { label: 'Cyber SOC', href: `${basePath}?category=Cyber SOC`,  cat: 'Cyber SOC'  },
+              { label: 'Articles',  href: '/articles',                        cat: 'articles'   },
+            ].map(({ label, href, cat }) => {
+              const active = isActive(cat);
+              const col    = CAT_COLORS[cat.toLowerCase()] || '#00FFC2';
+              return (
+                <Link
+                  key={cat}
+                  href={href}
+                  className="relative px-3 py-1.5 rounded-lg transition-all duration-200 group"
+                  style={{
+                    color:      active ? col : 'rgba(255,255,255,0.45)',
+                    background: active ? `${col}12` : 'transparent',
+                  }}
+                  onMouseEnter={e => {
+                    if (!active) (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.9)';
+                  }}
+                  onMouseLeave={e => {
+                    if (!active) (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)';
+                  }}
+                >
+                  <TextScramble text={label} trigger="hover" />
+                  {/* Active dot indicator */}
+                  {active && (
+                    <span
+                      className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                      style={{ background: col, boxShadow: `0 0 6px ${col}` }}
+                    />
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </div>
 
+        {/* Right: status badge + mobile toggle */}
         <div className="flex items-center gap-3">
-          {/* Status Badge */}
-          <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full">
-            <span className="w-1.5 h-1.5 md:w-2 md:h-2 bg-[#00FFC2] rounded-full animate-pulse"></span>
-            <span className="text-[9px] md:text-[10px] font-mono font-bold uppercase tracking-tighter text-white/80">
-              <span className="hidden sm:inline">AI Aggregator: </span>Active
-            </span>
+          <div
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border text-[9px] font-mono font-bold uppercase tracking-tight"
+            style={{
+              background:  `${activeColor}0d`,
+              borderColor: `${activeColor}30`,
+              color:        activeColor,
+            }}
+          >
+            <Zap className="w-3 h-3" style={{ color: activeColor }} />
+            <span className="hidden sm:inline">AI</span> Live
+            <span
+              className="w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ background: activeColor }}
+            />
           </div>
 
-          {/* Hamburger Menu Toggle (Mobile Only) */}
           <button
-            onClick={toggleMenu}
-            className="md:hidden text-white hover:text-[#00FFC2] transition-colors p-1"
+            onClick={() => setIsOpen(o => !o)}
+            className="md:hidden text-white/70 hover:text-white transition-colors p-1"
             aria-label="Toggle Menu"
           >
-            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </nav>
 
-      {/* Mobile Drawer Overlay */}
+      {/* Mobile drawer */}
       {isOpen && (
-        <div className="fixed inset-0 top-[61px] z-40 bg-[#050505]/95 backdrop-blur-lg flex flex-col p-8 md:hidden border-b border-white/10 animate-mobile-menu">
-          <div className="flex flex-col gap-6 text-lg font-bold uppercase tracking-widest mt-4">
-            <Link
-              href={`${basePath}?category=all`}
-              onClick={() => setIsOpen(false)}
-              className={activeCategory === 'all' ? 'text-[#00FFC2] border-b border-white/5 pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors'}
-            >
-              <TextScramble text="Network" trigger="both" />
-            </Link>
-            <Link
-              href={`${basePath}?category=DevOps`}
-              onClick={() => setIsOpen(false)}
-              className={activeCategory.toLowerCase() === 'devops' ? 'text-[#00FFC2] border-b border-white/5 pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors'}
-            >
-              <TextScramble text="DevOps" trigger="both" />
-            </Link>
-            <Link
-              href={`${basePath}?category=K8s`}
-              onClick={() => setIsOpen(false)}
-              className={activeCategory.toLowerCase() === 'k8s' ? 'text-[#00FFC2] border-b border-white/5 pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors'}
-            >
-              <TextScramble text="K8s" trigger="both" />
-            </Link>
-            <Link
-              href={`${basePath}?category=AI/ML`}
-              onClick={() => setIsOpen(false)}
-              className={activeCategory.toLowerCase() === 'ai/ml' ? 'text-[#00FFC2] border-b border-white/5 pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors'}
-            >
-              <TextScramble text="AI/ML" trigger="both" />
-            </Link>
-            <Link
-              href={`${basePath}?category=Cyber SOC`}
-              onClick={() => setIsOpen(false)}
-              className={activeCategory.toLowerCase() === 'cyber soc' ? 'text-[#00FFC2] border-b border-white/5 pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] border-b border-white/5 pb-2 transition-colors'}
-            >
-              <TextScramble text="Cyber SOC" trigger="both" />
-            </Link>
-            <Link
-              href="/articles"
-              onClick={() => setIsOpen(false)}
-              className={isArticlesPage ? 'text-[#00FFC2] pb-2 font-black' : 'text-white/60 hover:text-[#00FFC2] pb-2 transition-colors'}
-            >
-              <TextScramble text="Articles" trigger="both" />
-            </Link>
+        <div
+          className="fixed inset-0 top-[56px] z-40 flex flex-col px-8 py-10 md:hidden animate-mobile-menu"
+          style={{
+            background:     'rgba(3,4,9,0.97)',
+            backdropFilter: 'blur(28px)',
+            borderTop:      `1px solid ${activeColor}20`,
+          }}
+        >
+          {/* Ambient glow */}
+          <div
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 pointer-events-none"
+            style={{
+              background: `radial-gradient(ellipse, ${activeColor}12 0%, transparent 70%)`,
+              filter: 'blur(20px)',
+            }}
+          />
+
+          <div className="relative flex flex-col gap-1">
+            {[
+              { label: 'Network',   href: `${basePath}?category=all`,       cat: 'all'        },
+              { label: 'DevOps',    href: `${basePath}?category=DevOps`,     cat: 'DevOps'     },
+              { label: 'K8s',       href: `${basePath}?category=K8s`,        cat: 'K8s'        },
+              { label: 'AI/ML',     href: `${basePath}?category=AI/ML`,      cat: 'AI/ML'      },
+              { label: 'Cyber SOC', href: `${basePath}?category=Cyber SOC`,  cat: 'Cyber SOC'  },
+              { label: 'Articles',  href: '/articles',                        cat: 'articles'   },
+            ].map(({ label, href, cat }, i) => {
+              const active = isActive(cat);
+              const col    = CAT_COLORS[cat.toLowerCase()] || '#00FFC2';
+              return (
+                <Link
+                  key={cat}
+                  href={href}
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center justify-between px-4 py-4 rounded-xl border transition-all duration-200"
+                  style={{
+                    color:       active ? col   : 'rgba(255,255,255,0.55)',
+                    background:  active ? `${col}0f` : 'transparent',
+                    borderColor: active ? `${col}25` : 'rgba(255,255,255,0.05)',
+                    animationDelay: `${i * 40}ms`,
+                  }}
+                >
+                  <span className="text-lg font-black uppercase tracking-widest">
+                    <TextScramble text={label} trigger="both" />
+                  </span>
+                  {active && (
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: col, boxShadow: `0 0 8px ${col}` }} />
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
