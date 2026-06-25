@@ -16,58 +16,115 @@ body {
   color: var(--color-foreground);
 }
 
-@keyframes mobileMenuSlideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
+/* ─── Glassmorphism token system ─────────────────────────────────────────────
+   Use these on any glass surface: nav, cards, panels, drawers.
+   Apply with: background: var(--glass-bg); border: 1px solid var(--glass-border);
+   backdrop-filter: blur(var(--glass-blur));
+   ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --glass-bg:     rgba(5, 7, 14, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur:   18px;
+  --glass-bg-strong:  rgba(5, 7, 14, 0.88);
+  --glass-border-strong: rgba(255, 255, 255, 0.13);
+}
+
+/* ─── Custom cursor — hide OS cursor on real pointer devices ─────────────────
+   Touch screens are excluded via the media query, so mobile is unaffected.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (hover: hover) and (pointer: fine) {
+  *, *::before, *::after { cursor: none !important; }
+  input, textarea, select { cursor: text !important; }
+}
+
+/* ─── Page transition — frost dissolve (PageTransition.tsx) ──────────────────
+   Fires on every Next.js route change.
+   ─────────────────────────────────────────────────────────────────────────── */
+@keyframes frostDissolve {
+  0% {
     opacity: 1;
-    transform: translateY(0);
+    background: rgba(0, 255, 194, 0.09);
+    backdrop-filter: blur(8px) saturate(1.4);
+    box-shadow:
+      inset 4px 0 0 rgba(0, 180, 255, 0.16),
+      inset -4px 0 0 rgba(200, 0, 255, 0.10);
   }
+  40% {
+    opacity: 0.65;
+    background: rgba(0, 255, 194, 0.03);
+    backdrop-filter: blur(3px) saturate(1.1);
+    box-shadow: none;
+  }
+  100% {
+    opacity: 0;
+    background: transparent;
+    backdrop-filter: blur(0px) saturate(1);
+  }
+}
+
+.frost-dissolve-active {
+  animation: frostDissolve 0.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── TextScramble — RGB glitch flash (TextScramble.tsx) ─────────────────────
+   The .glitch-active class is toggled by JS at the start of each scramble.
+   ─────────────────────────────────────────────────────────────────────────── */
+@keyframes glitchFlash {
+  0%   { text-shadow: none;                                       letter-spacing: normal; }
+  12%  { text-shadow: -3px 0 #ff0080, 3px 0 #00FFC2;             letter-spacing: 0.06em; }
+  28%  { text-shadow:  2px 0 #4FC3F7, -2px 0 #CE93D8;            letter-spacing: normal; }
+  52%  { text-shadow: -1px 0 #00FFC2, 1px 0 rgba(255,255,255,0.5); letter-spacing: 0.02em; }
+  78%  { text-shadow: none;                                       letter-spacing: 0.01em; }
+  100% { text-shadow: none;                                       letter-spacing: normal; }
+}
+
+.glitch-active {
+  animation: glitchFlash 0.4s ease forwards;
+  display: inline-block; /* required for letter-spacing to animate on spans */
+}
+
+/* ─── Preloader scan lines ────────────────────────────────────────────────── */
+@keyframes scanMove {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.scan-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent, rgba(0,255,194,0.15), transparent);
+  animation: scanMove 3s linear infinite;
+  pointer-events: none;
+}
+
+/* ─── Hero text reveal (from existing page.tsx animations) ──────────────────
+   Kept exactly as the original codebase had it.
+   ─────────────────────────────────────────────────────────────────────────── */
+@keyframes heroTextReveal {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ─── Mobile nav slide-down ─────────────────────────────────────────────────
+   Unchanged from original.
+   ─────────────────────────────────────────────────────────────────────────── */
+@keyframes mobileMenuSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0);    }
 }
 
 .animate-mobile-menu {
   animation: mobileMenuSlideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+/* ─── Scrollbar hide utility ─────────────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-html.lenis, html.lenis body {
-  height: auto;
-}
-
-.lenis-smooth {
-  scroll-behavior: auto !important;
-}
-
-.lenis-smooth [data-lenis-prevent] {
-  overscroll-behavior: contain;
-}
-
-.lenis-stopped {
-  overflow: hidden;
-}
-
-.lenis-smooth iframe {
-  pointer-events: none;
-}
-
-@keyframes heroTextReveal {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
+/* ─── Lenis smooth scroll ────────────────────────────────────────────────── */
+html.lenis, html.lenis body { height: auto; }
+.lenis-smooth             { scroll-behavior: auto !important; }
+.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis-stopped            { overflow: hidden; }
+.lenis-smooth iframe      { pointer-events: none; }

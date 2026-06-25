@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Navigation } from '@/components/Navigation';
-import { TickerBar } from '@/components/TickerBar';
-import { SmoothScroll } from '@/components/SmoothScroll';
-import { Suspense } from 'react';
+import { Navigation }     from '@/components/Navigation';
+import { TickerBar }      from '@/components/TickerBar';
+import { SmoothScroll }   from '@/components/SmoothScroll';
+import { ScrollProgress } from '@/components/ScrollProgress';
+import { CustomCursor }   from '@/components/CustomCursor';
+import { PageTransition } from '@/components/PageTransition';
+import { Suspense }       from 'react';
 import { Inter, IBM_Plex_Mono } from 'next/font/google';
 
 const inter = Inter({
@@ -17,8 +20,6 @@ const mono = IBM_Plex_Mono({
   variable: '--font-mono',
 });
 
-import { ScrollProgress } from '@/components/ScrollProgress';
-
 export const metadata: Metadata = {
   title: 'TECH_SYNC.',
   description: 'AI-driven technology news aggregation portal.',
@@ -27,15 +28,28 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} ${mono.variable} min-h-screen bg-[#050505] text-white flex flex-col font-sans`} suppressHydrationWarning>
+      <body
+        className={`${inter.variable} ${mono.variable} min-h-screen bg-[#050505] text-white flex flex-col font-sans`}
+        suppressHydrationWarning
+      >
+        {/* Lenis smooth scroll initialiser */}
         <SmoothScroll />
+
+        {/* Thin teal scroll-progress bar at very top */}
         <ScrollProgress />
-        {/* Top Ticker */}
+
+        {/* igloo.inc-style magnetic cursor — renders nothing on touch devices */}
+        <CustomCursor />
+
+        {/* Frost-dissolve overlay that fires on every Next.js route change */}
+        <PageTransition />
+
+        {/* Live headline ticker */}
         <Suspense fallback={<div className="h-8 bg-[#00FFC2]" />}>
           <TickerBar />
         </Suspense>
 
-        {/* Navigation */}
+        {/* Main navigation */}
         <Suspense fallback={<div className="h-[65px] bg-[#050505] border-b border-white/10" />}>
           <Navigation />
         </Suspense>
